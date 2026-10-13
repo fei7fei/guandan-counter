@@ -509,7 +509,7 @@ function newDraft(teams) {
     rules: { aPassWith14: false, aMaxFails: 0 },
     start: { levels: [0, 0], declarer: null },
     advanced: false,
-    guest: false,                        // quick game: typed names, nothing saved
+    guest: !teams,                       // quick game (the default): typed names, nothing saved
     guestNames: [['', ''], ['', '']],
   };
 }
@@ -557,8 +557,8 @@ function renderNewGame() {
         <p class="muted">${tr('heroSub')}</p>
       </div>
       <div class="seg">
-        <button class="${d.guest ? '' : 'on'}" data-action="draft-mode" data-guest="0">${tr('modeSaved')}</button>
         <button class="${d.guest ? 'on' : ''}" data-action="draft-mode" data-guest="1">${tr('modeGuest')}</button>
+        <button class="${d.guest ? '' : 'on'}" data-action="draft-mode" data-guest="0">${tr('modeSaved')}</button>
       </div>
       ${d.guest ? `<p class="hint center">${tr('guestDesc')}</p>` : ''}
       <div class="new-teams">
@@ -1269,10 +1269,10 @@ const actions = {
     mutate(tr('savedToHistory'), () => { g.abandoned = true; data.activeGameId = null; });
   },
   'new-game'() {
-    const wasGuest = activeGame()?.guest;
+    const prev = activeGame();
     ui.sheet = null;
     ui.draft = newDraft();
-    ui.draft.guest = Boolean(wasGuest);
+    ui.draft.guest = prev ? Boolean(prev.guest) : true; // stay in the mode you were playing
     ui.fanDealt = false;
     data.activeGameId = null;
     data.games = data.games.filter(g => !g.guest); // quick games are never kept

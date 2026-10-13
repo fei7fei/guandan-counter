@@ -5,6 +5,8 @@
 const STRINGS = {
   en: {
     langBtn: '中文',
+    appName: 'Guandan Counter',
+    tagline: 'Your scorekeeper for game night',
     langAria: 'Switch to Chinese',
     team: ['Red', 'Blue'],
     teamFull: ['Red team', 'Blue team'],
@@ -214,6 +216,8 @@ const STRINGS = {
 
   zh: {
     langBtn: 'EN',
+    appName: '掼蛋计分器',
+    tagline: '牌桌上的记分好帮手',
     langAria: '切换到英文',
     team: ['红队', '蓝队'],
     teamFull: ['红队', '蓝队'],

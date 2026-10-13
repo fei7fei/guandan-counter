@@ -31,7 +31,7 @@ const teamName = t => tr('team')[t];
 
 function applyLang() {
   document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
-  document.title = lang === 'zh' ? '掼蛋计分器' : 'Guandan Counter';
+  document.title = tr('appName');
   document.getElementById('tabs').setAttribute('aria-label', tr('sections'));
   document.querySelectorAll('#tabs [data-tab]').forEach(b => { b.querySelector('.tl').textContent = tr('tabs')[b.dataset.tab]; });
 }
@@ -1575,8 +1575,61 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && ui.sheet) closeSheet();
 });
 
+// ---------- opening animation ----------
+// Chick pops in, two decks' worth of aces fan out behind it, the name rises, then it all
+// fades into the app. A tap anywhere skips straight in.
+function runSplash() {
+  const el = document.getElementById('splash');
+  if (!el) return;
+  const FAN = [[-42, 1], [-14, 0], [14, 1], [42, 0]];   // [angle, suit index]
+  el.innerHTML = `
+    <div class="splash-stage">
+      ${FAN.map(([, t]) => playingCard(ACE, t)).join('')}
+      <div class="splash-chick"><img src="icons/icon-512.png" alt=""></div>
+    </div>
+    <h1 class="splash-title">${tr('appName')}</h1>
+    <p class="splash-tag">${tr('tagline')}</p>
+    <div class="splash-suits">♠ ♥ ♣ ♦</div>`;
+  const cards = el.querySelectorAll('.pcard-wrap');
+  const chick = el.querySelector('.splash-chick');
+  const texts = el.querySelectorAll('.splash-title, .splash-tag, .splash-suits');
+  const rest = 'translate(-50%, -50%)';
+  cards.forEach(c => { c.style.transform = rest; });
+
+  let done = false;
+  const exit = () => {
+    if (done) return;
+    done = true;
+    el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: reducedMotion() ? 200 : 450, easing: 'ease-in', fill: 'forwards' })
+      .onfinish = () => el.remove();
+    if (!reducedMotion()) el.querySelector('.splash-stage').animate([{ transform: 'none' }, { transform: 'scale(1.08)' }], { duration: 450, fill: 'forwards' });
+  };
+  el.addEventListener('pointerdown', exit, { once: true });
+
+  if (reducedMotion()) {
+    FAN.forEach(([a], i) => { cards[i].style.transform = `${rest} rotate(${a}deg) translateY(-34px)`; });
+    setTimeout(exit, 1200);
+    return;
+  }
+  const pop = 'cubic-bezier(.23, 1, .32, 1)';
+  chick.animate(
+    [{ transform: 'scale(0) rotate(-14deg)', easing: pop }, { transform: 'scale(1.12) rotate(4deg)', offset: 0.6, easing: 'ease-in-out' }, { transform: 'none' }],
+    { duration: 700, delay: 80, fill: 'backwards' },
+  );
+  FAN.forEach(([a], i) => cards[i].animate(
+    [{ transform: `${rest} rotate(0deg) translateY(20px) scale(.6)`, opacity: 0 }, { transform: `${rest} rotate(${a}deg) translateY(-34px)`, opacity: 1 }],
+    { duration: 620, delay: 380 + i * 90, easing: pop, fill: 'both' },
+  ));
+  texts.forEach((t, i) => t.animate(
+    [{ opacity: 0, transform: 'translateY(16px)' }, { opacity: 1, transform: 'none' }],
+    { duration: 520, delay: 820 + i * 140, easing: pop, fill: 'backwards' },
+  ));
+  setTimeout(exit, 2600);
+}
+
 // ---------- boot ----------
 applyLang();
+runSplash();
 render();
 navigator.storage?.persist?.().catch(() => {});
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {

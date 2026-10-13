@@ -184,6 +184,32 @@ const STRINGS = {
     replaceAll: 'Replace everything?',
     backupBody: (p, g) => `This backup has ${p} players and ${g} games. It replaces all data on this device.`,
     backupImported: 'Backup imported',
+
+    // sharing
+    share: 'Share',
+    shareResult: 'Share result',
+    copied: 'Copied! Paste it anywhere to share.',
+    shareFail: 'Couldn’t share from this device',
+    shareGameHead: date => `🃏 Guandan · ${date}`,
+    shareWinner: (tm, names) => `♛ ${tm} wins! (${names})`,
+    shareInProgress: 'Game in progress',
+    shareHands: n => `${n} hand${n === 1 ? '' : 's'} played`,
+    shareLeaderHead: range => `🃏 Guandan leaderboard · ${range}`,
+    shareLeaderRow: (i, name, p, w, l) => `${i}. ${name}: ${p} (${w}-${l})`,
+    shareBestPair: (names, p, n) => `Best partnership: ${names}, ${p} of ${n} game${n === 1 ? '' : 's'}`,
+    shareFooter: url => `Scored with Guandan Counter: ${url}`,
+    spring: 'SPRING!',
+    springSay: 'Spring!',
+
+    // quick game (guest mode)
+    modeSaved: 'Track stats',
+    modeGuest: 'Quick game',
+    guestDesc: 'Type four names, or just leave them as 1 2 3 4. Nothing goes into history or stats.',
+    guestSeat: l => `Player ${l} name`,
+    guestBadge: 'Quick game · not saved',
+    endGuest: 'End this game',
+    endGuestSub: 'Quick games aren’t saved',
+    guestEnded: 'Game ended',
   },
 
   zh: {
@@ -367,5 +393,31 @@ const STRINGS = {
     replaceAll: '替换全部数据？',
     backupBody: (p, g) => `这份备份有${p}位玩家和${g}场比赛，会替换这台设备上的所有数据。`,
     backupImported: '备份已导入',
+
+    // sharing
+    share: '分享',
+    shareResult: '分享结果',
+    copied: '已复制，粘贴到任何地方即可分享。',
+    shareFail: '这台设备无法分享',
+    shareGameHead: date => `🃏 掼蛋 · ${date}`,
+    shareWinner: (tm, names) => `♛ ${tm}获胜！（${names}）`,
+    shareInProgress: '比赛进行中',
+    shareHands: n => `共打了${n}局`,
+    shareLeaderHead: range => `🃏 掼蛋排行榜 · ${range}`,
+    shareLeaderRow: (i, name, p, w, l) => `${i}. ${name}：胜率${p}（${w}胜${l}负）`,
+    shareBestPair: (names, p, n) => `最佳搭档：${names}，${n}场胜率${p}`,
+    shareFooter: url => `用掼蛋计分器记分：${url}`,
+    spring: '春天！',
+    springSay: '春天',
+
+    // quick game (guest mode)
+    modeSaved: '记录战绩',
+    modeGuest: '快速开局',
+    guestDesc: '输入四个名字，或直接用1 2 3 4。不会存入历史或统计。',
+    guestSeat: l => `玩家${l}的名字`,
+    guestBadge: '快速开局 · 不保存',
+    endGuest: '结束这场比赛',
+    endGuestSub: '快速开局不会保存',
+    guestEnded: '比赛已结束',
   },
 };

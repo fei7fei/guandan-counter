@@ -163,6 +163,8 @@ const sound = (() => {
       [523.25, 659.25, 783.99, 1046.5].forEach(f => tone(f, { t: 0.5, dur: 1.1, type: 'sine', gain: 0.06 }));
       noise({ t: 0.5, dur: 0.5, gain: 0.05, freq: 6000, q: 0.5 });
     },
+    // a bright rising run on top of the win fanfare
+    spring: () => [1046.5, 1174.7, 1318.5, 1568, 2093].forEach((f, i) => tone(f, { t: 0.9 + i * 0.07, dur: 0.25, type: 'sine', gain: 0.07 })),
     undo: () => tone(700, { dur: 0.16, type: 'triangle', gain: 0.09, slide: 330 }),
     del: () => tone(240, { dur: 0.2, type: 'sine', gain: 0.16, slide: 110 }),
     pop: () => tone(700, { dur: 0.1, type: 'sine', gain: 0.12, slide: 1400 }),
@@ -175,6 +177,21 @@ const sound = (() => {
       try { fx[name](...args); } catch (e) { /* audio unavailable */ }
     },
     unlock() { if (!muted) ac(); },
+    // Spoken words use the device's built-in voices, so they work offline too.
+    say(text, langTag) {
+      if (muted || !window.speechSynthesis) return;
+      try {
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = langTag;
+        const voices = speechSynthesis.getVoices();
+        const norm = v => v.lang.replace('_', '-');
+        u.voice = voices.find(v => norm(v) === langTag) || voices.find(v => norm(v).startsWith(langTag.slice(0, 2))) || null;
+        u.rate = 0.9;
+        u.pitch = 1.15;
+        speechSynthesis.cancel();
+        speechSynthesis.speak(u);
+      } catch (e) { /* speech unavailable */ }
+    },
     get muted() { return muted; },
     toggle() {
       muted = !muted;
@@ -188,7 +205,7 @@ const sound = (() => {
 const uid = () => Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-4);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const findPlayer = id => data.players.find(p => p.id === id);
-const pname = id => findPlayer(id)?.name ?? tr('unknown');
+const pname = id => findPlayer(id)?.name ?? guestName(id) ?? tr('unknown');
 const teamNames = team => team.map(pname).join(' & ');
 const findGame = id => data.games.find(g => g.id === id);
 const activeGame = () => {
@@ -307,7 +324,7 @@ function computeStats(since = 0) {
   const blank = () => ({ games: 0, wins: 0, deals: 0, dealWins: 0, doubles: 0, firstOuts: 0 });
 
   for (const g of data.games) {
-    if (g.createdAt < since) continue;
+    if (g.guest || g.createdAt < since) continue;
     const st = computeState(g);
     const done = st.winner !== null;
     const deals = g.deals.filter((d, i) => d.type !== 'adjust' && !st.steps[i].ignored);
@@ -409,6 +426,7 @@ function renderPlay() {
     ? `<div class="actions-row">
          <button class="btn gold big" data-action="new-game">${tr('dealNew')}</button>
          <button class="btn big" data-action="rematch">${tr('rematch')}</button>
+         <button class="btn big" data-action="share-game" data-id="${g.id}">${tr('shareResult')}</button>
        </div>`
     : `<div class="record">
          <p class="hint">${tr('whoWon')}</p>
@@ -422,6 +440,7 @@ function renderPlay() {
     <div class="play-grid">
       <section class="board">
         ${status}
+        ${g.guest ? `<p class="hint center guest-note">${tr('guestBadge')}</p>` : ''}
         <div class="teams">${[0, 1].map(t => teamCard(g, st, t)).join('')}</div>
         ${record}
         <button class="btn subtle undo-deal" data-action="undo-deal" ${g.deals.length ? '' : 'disabled'}>${tr('undoLast')}</button>
@@ -490,21 +509,32 @@ function newDraft(teams) {
     rules: { aPassWith14: false, aMaxFails: 0 },
     start: { levels: [0, 0], declarer: null },
     advanced: false,
+    guest: false,                        // quick game: typed names, nothing saved
+    guestNames: [['', ''], ['', '']],
   };
 }
 
+// Quick-game seats aren't real players; the name rides along in the id.
+const SEAT_LETTER = ['1', '2', '3', '4'];
+const guestId = (t, s, name) => `guest|${t * 2 + s}|${name.trim() || SEAT_LETTER[t * 2 + s]}`;
+const guestName = id => (id?.startsWith('guest|') ? id.split('|').slice(2).join('|') : null);
+
 function lastGame() {
-  return [...data.games].sort((a, b) => b.createdAt - a.createdAt)[0];
+  return data.games.filter(g => !g.guest).sort((a, b) => b.createdAt - a.createdAt)[0];
 }
 
 function renderNewGame() {
   const d = (ui.draft ??= newDraft());
   const picked = d.teams.flat();
-  const ready = picked.every(Boolean) && new Set(picked).size === 4;
+  const ready = d.guest || (picked.every(Boolean) && new Set(picked).size === 4);
   const prev = lastGame();
   const unequal = d.start.levels[0] !== d.start.levels[1];
 
   const slot = (t, s) => {
+    if (d.guest) {
+      const letter = SEAT_LETTER[t * 2 + s];
+      return `<div class="slot filled"><label class="slot-name"><span class="avatar">${letter}</span><input class="guest-name" data-input="guest-name" data-team="${t}" data-seat="${s}" value="${esc(d.guestNames[t][s])}" placeholder="${letter}" maxlength="20" autocomplete="off" aria-label="${tr('guestSeat', letter)}"></label></div>`;
+    }
     const id = d.teams[t][s];
     return id
       ? `<div class="slot filled"><button class="slot-name" data-action="slot" data-team="${t}" data-seat="${s}"><span class="avatar">${esc(pname(id).slice(0, 1).toUpperCase())}</span>${esc(pname(id))}</button><button class="slot-x" data-action="clear-slot" data-team="${t}" data-seat="${s}" aria-label="${tr('remove')}">×</button></div>`
@@ -526,6 +556,11 @@ function renderNewGame() {
         <h2 class="hero-title">${tr('heroTitle')}</h2>
         <p class="muted">${tr('heroSub')}</p>
       </div>
+      <div class="seg">
+        <button class="${d.guest ? '' : 'on'}" data-action="draft-mode" data-guest="0">${tr('modeSaved')}</button>
+        <button class="${d.guest ? 'on' : ''}" data-action="draft-mode" data-guest="1">${tr('modeGuest')}</button>
+      </div>
+      ${d.guest ? `<p class="hint center">${tr('guestDesc')}</p>` : ''}
       <div class="new-teams">
         ${[0, 1].map(t => `
           <div class="panel new-team t${t}">
@@ -534,8 +569,8 @@ function renderNewGame() {
           </div>`).join('')}
       </div>
       <div class="chip-row">
-        ${prev && prev.teams.flat().every(id => findPlayer(id) && !findPlayer(id).deleted) ? `<button class="chip" data-action="same-teams">${tr('sameTeams')}</button>` : ''}
-        ${picked.filter(Boolean).length === 4 ? `<button class="chip" data-action="shuffle-teams">${tr('shuffle')}</button><button class="chip" data-action="swap-teams">${tr('swap')}</button>` : ''}
+        ${!d.guest && prev && prev.teams.flat().every(id => findPlayer(id) && !findPlayer(id).deleted) ? `<button class="chip" data-action="same-teams">${tr('sameTeams')}</button>` : ''}
+        ${d.guest || picked.filter(Boolean).length === 4 ? `<button class="chip" data-action="shuffle-teams">${tr('shuffle')}</button><button class="chip" data-action="swap-teams">${tr('swap')}</button>` : ''}
       </div>
 
       <div class="panel rules">
@@ -569,14 +604,14 @@ function renderNewGame() {
       </div>
 
       <button class="btn gold big full" data-action="start-game" ${ready && (!unequal || d.start.declarer !== null) ? '' : 'disabled'}>${tr('letsPlay')}</button>
-      ${!ready ? `<p class="hint center">${tr('pickFour')}</p>` : ''}
+      ${!ready && !d.guest ? `<p class="hint center">${tr('pickFour')}</p>` : ''}
     </div>`;
 }
 
 // ----- History -----
 function renderHistory() {
   if (ui.gameId && findGame(ui.gameId)) return renderGameDetail(findGame(ui.gameId));
-  const games = [...data.games].sort((a, b) => b.createdAt - a.createdAt);
+  const games = data.games.filter(g => !g.guest).sort((a, b) => b.createdAt - a.createdAt);
   if (!games.length) return `${header(tr('history'))}<div class="narrow"><p class="empty big-empty"><span class="empty-suits">♠ ♥ ♣ ♦</span>${tr('noGames')}</p></div>`;
 
   let lastDay = '';
@@ -613,6 +648,7 @@ function renderGameDetail(g) {
       <div class="actions-row">
         ${st.winner === null && !isActive ? `<button class="btn gold" data-action="resume-game" data-id="${g.id}">${tr('resumeGame')}</button>` : ''}
         ${isActive ? `<button class="btn gold" data-action="tab" data-tab="play">${tr('backToTable')}</button>` : ''}
+        <button class="btn" data-action="share-game" data-id="${g.id}">${tr(st.winner !== null ? 'shareResult' : 'share')}</button>
         <button class="btn danger" data-action="delete-game" data-id="${g.id}">${tr('deleteGame')}</button>
       </div>
       <section class="panel log"><h2>${tr('hands')}</h2>${dealLog(g, st)}</section>
@@ -640,7 +676,7 @@ function renderStats() {
   const bestPair = pairRows[0]?.games ? pairRows[0] : null;
 
   return `
-    ${header(tr('stats'))}
+    ${header(tr('stats'), { right: leader ? `<button class="sound-btn" data-action="share-stats">${tr('share')}</button>` : '' })}
     <div class="narrow">
       ${seg}
       ${leader ? `
@@ -867,8 +903,10 @@ function sheetMenu() {
     <h2>${tr('gameOptions')}</h2>
     <div class="menu">
       ${st.winner === null ? `<button data-action="adjust-open">${tr('setLevels')}<small>${tr('setLevelsSub')}</small></button>` : ''}
-      <button data-action="open-game" data-id="${g.id}">${tr('seeInHistory')}</button>
-      ${st.winner === null ? `<button class="danger" data-action="abandon-game">${tr('endNoWinner')}<small>${tr('endNoWinnerSub')}</small></button>` : ''}
+      ${g.guest ? '' : `<button data-action="open-game" data-id="${g.id}">${tr('seeInHistory')}</button>`}
+      ${st.winner !== null ? '' : g.guest
+        ? `<button class="danger" data-action="abandon-game">${tr('endGuest')}<small>${tr('endGuestSub')}</small></button>`
+        : `<button class="danger" data-action="abandon-game">${tr('endNoWinner')}<small>${tr('endNoWinnerSub')}</small></button>`}
       <button data-action="new-game">${tr('startNew')}</button>
     </div>
     <p class="muted small">${tr('rulesLine', g.rules.aPassWith14, g.rules.aMaxFails)}</p>
@@ -960,6 +998,7 @@ function afterRender() {
   if (st.winner !== null && prev.winner === null) {
     sound.play('win');
     celebrate();
+    if (isSpring(g, st)) springBanner();
   } else if (rose) sound.play('up', rose);
   else if (fell) sound.play('down');
 
@@ -995,6 +1034,51 @@ function flipCard(t, diff) {
   }
 }
 
+// The winners took the game without the other side winning a single hand.
+function isSpring(g, st) {
+  if (st.winner === null) return false;
+  return !g.deals.some((d, i) => d.type !== 'adjust' && !st.steps[i].ignored && d.winner !== st.winner);
+}
+
+function springBanner() {
+  const layer = document.createElement('div');
+  layer.className = 'spring';
+  layer.innerHTML = `<span class="spring-word">${tr('spring')}</span>`;
+  document.body.appendChild(layer);
+  const word = layer.firstChild;
+  sound.play('spring');
+  sound.say(tr('springSay'), lang === 'zh' ? 'zh-CN' : 'en-US');
+  if (reducedMotion()) {
+    word.animate([{ opacity: 0 }, { opacity: 1, offset: 0.15 }, { opacity: 1, offset: 0.85 }, { opacity: 0 }], { duration: 2400, fill: 'forwards' })
+      .onfinish = () => layer.remove();
+    return;
+  }
+  word.animate(
+    [
+      { opacity: 0, transform: 'scale(.2) rotate(-12deg)' },
+      { opacity: 1, transform: 'scale(1.18) rotate(3deg)', offset: 0.14 },
+      { opacity: 1, transform: 'scale(1) rotate(-2deg)', offset: 0.24 },
+      { opacity: 1, transform: 'scale(1.04) rotate(0deg)', offset: 0.8 },
+      { opacity: 0, transform: 'scale(1.5) translateY(-20px)' },
+    ],
+    { duration: 3000, easing: 'cubic-bezier(.23, 1, .32, 1)', fill: 'forwards' },
+  ).onfinish = () => layer.remove();
+  const w = window.innerWidth, h = window.innerHeight;
+  for (let i = 0; i < 36; i++) {
+    const p = document.createElement('span');
+    p.className = 'petal';
+    p.textContent = i % 3 ? '🌸' : '🌼';
+    p.style.left = Math.random() * w + 'px';
+    p.style.fontSize = 18 + Math.random() * 20 + 'px';
+    layer.appendChild(p);
+    const sway = (Math.random() - 0.5) * 260;
+    p.animate(
+      [{ transform: 'translate(0, -40px) rotate(0deg)', opacity: 0 }, { opacity: 1, offset: 0.1 }, { transform: `translate(${sway}px, ${h + 40}px) rotate(${(Math.random() - 0.5) * 540}deg)`, opacity: 0.85 }],
+      { duration: 2200 + Math.random() * 1200, delay: Math.random() * 600, easing: 'ease-in', fill: 'forwards' },
+    );
+  }
+}
+
 function celebrate() {
   if (reducedMotion()) return;
   const layer = document.createElement('div');
@@ -1017,6 +1101,47 @@ function celebrate() {
       [{ transform: 'translate(0, -40px) rotate(0deg)', opacity: 1 }, { transform: `translate(${drift}px, ${h + 60}px) rotate(${spin}deg)`, opacity: 0.9 }],
       { duration: 1800 + Math.random() * 1400, delay: Math.random() * 500, easing: 'cubic-bezier(.25, .46, .45, .94)', fill: 'forwards' },
     ).onfinish = () => { if (--left === 0) layer.remove(); };
+  }
+}
+
+// ---------- sharing ----------
+// Plain text so it pastes cleanly into Messages, WeChat, WhatsApp and the like.
+function shareFooter() {
+  return location.protocol === 'https:' ? '\n\n' + tr('shareFooter', location.origin + location.pathname) : '';
+}
+
+function gameShareText(g) {
+  const st = computeState(g);
+  const hands = g.deals.filter(d => d.type !== 'adjust').length;
+  const lines = [tr('shareGameHead', fmtDate(g.createdAt))];
+  lines.push(st.winner !== null ? tr('shareWinner', teamName(st.winner), teamNames(g.teams[st.winner]))
+    : g.abandoned ? tr('endedEarly') : tr('shareInProgress'));
+  lines.push('');
+  for (const t of [0, 1]) lines.push(`${SUIT[t]} ${teamName(t)}  ${teamNames(g.teams[t])}: ${rank(st.levels[t])}`);
+  lines.push(tr('shareHands', hands));
+  return lines.join('\n') + shareFooter();
+}
+
+function statsShareText() {
+  const { players, pairs } = computeStats(rangeStart());
+  const rows = Object.entries(players).map(([id, s]) => ({ id, ...s })).filter(s => s.games).sort(byRecord).slice(0, 10);
+  const lines = [tr('shareLeaderHead', tr('ranges')[ui.range]), ''];
+  rows.forEach((s, i) => lines.push((i === 0 ? '♛ ' : '') + tr('shareLeaderRow', i + 1, pname(s.id), pct(s.wins, s.games), s.wins, s.games - s.wins)));
+  const best = Object.values(pairs).filter(s => s.games).sort(byRecord)[0];
+  if (best) lines.push('', tr('shareBestPair', teamNames(best.ids), pct(best.wins, best.games), best.games));
+  return lines.join('\n') + shareFooter();
+}
+
+async function shareText(text) {
+  if (navigator.share) {
+    try { await navigator.share({ text }); return; }
+    catch (e) { if (e.name === 'AbortError') return; }
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    toast(tr('copied'));
+  } catch (e) {
+    toast(tr('shareFail'));
   }
 }
 
@@ -1137,13 +1262,20 @@ const actions = {
   'abandon-game'() {
     const g = activeGame();
     ui.sheet = null;
+    if (g.guest) {
+      mutate(tr('guestEnded'), () => { data.games = data.games.filter(x => x !== g); data.activeGameId = null; });
+      return;
+    }
     mutate(tr('savedToHistory'), () => { g.abandoned = true; data.activeGameId = null; });
   },
   'new-game'() {
+    const wasGuest = activeGame()?.guest;
     ui.sheet = null;
-    ui.draft = null;
+    ui.draft = newDraft();
+    ui.draft.guest = Boolean(wasGuest);
     ui.fanDealt = false;
     data.activeGameId = null;
+    data.games = data.games.filter(g => !g.guest); // quick games are never kept
     save();
     ui.tab = 'play';
     render();
@@ -1151,10 +1283,17 @@ const actions = {
   },
   rematch() {
     const g = activeGame();
-    ui.draft = newDraft(g.teams.map(t => t.map(id => (findPlayer(id)?.deleted ? null : id))));
+    if (g.guest) {
+      ui.draft = newDraft();
+      ui.draft.guest = true;
+      ui.draft.guestNames = g.teams.map(t => t.map(guestName));
+    } else {
+      ui.draft = newDraft(g.teams.map(t => t.map(id => (findPlayer(id)?.deleted ? null : id))));
+    }
     ui.draft.rules = { ...g.rules };
     ui.fanDealt = false;
     data.activeGameId = null;
+    data.games = data.games.filter(x => !x.guest);
     save();
     render();
     switchView();
@@ -1173,13 +1312,15 @@ const actions = {
     ui.draft.rules = { ...prev.rules };
     render();
   },
+  'draft-mode'({ guest }) { ui.draft.guest = guest === '1'; render(); },
   'shuffle-teams'() {
-    const all = ui.draft.teams.flat();
+    const key = ui.draft.guest ? 'guestNames' : 'teams';
+    const all = ui.draft[key].flat();
     for (let i = all.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [all[i], all[j]] = [all[j], all[i]];
     }
-    ui.draft.teams = [[all[0], all[1]], [all[2], all[3]]];
+    ui.draft[key] = [[all[0], all[1]], [all[2], all[3]]];
     render();
     if (!reducedMotion()) {
       document.querySelectorAll('.slot.filled').forEach((el, i) => el.animate(
@@ -1188,7 +1329,7 @@ const actions = {
       ));
     }
   },
-  'swap-teams'() { ui.draft.teams.reverse(); render(); },
+  'swap-teams'() { ui.draft[ui.draft.guest ? 'guestNames' : 'teams'].reverse(); render(); },
   'rule-14'({ v }) { ui.draft.rules.aPassWith14 = v === '1'; render(); },
   'rule-fails'({ n }) { ui.draft.rules.aMaxFails = +n; render(); },
   'toggle-advanced'() {
@@ -1203,14 +1344,19 @@ const actions = {
     const g = {
       id: uid(),
       createdAt: Date.now(),
-      teams: d.teams.map(t => t.slice()),
+      teams: d.guest ? d.guestNames.map((t, ti) => t.map((name, s) => guestId(ti, s, name))) : d.teams.map(t => t.slice()),
       rules: { ...d.rules },
       start: { levels: d.start.levels.slice(), declarer: unequal ? d.start.declarer : null },
       deals: [],
       abandoned: false,
+      ...(d.guest && { guest: true }),
     };
     ui.draft = null;
-    mutate(tr('dealt'), () => { data.games.push(g); data.activeGameId = g.id; });
+    mutate(tr('dealt'), () => {
+      data.games = data.games.filter(x => !x.guest);
+      data.games.push(g);
+      data.activeGameId = g.id;
+    });
     switchView();
   },
 
@@ -1264,6 +1410,8 @@ const actions = {
     const p = findPlayer(id);
     mutate(tr(p.archived ? 'isBack' : 'isHidden', p.name), () => { p.archived = !p.archived; });
   },
+  'share-game'({ id }) { shareText(gameShareText(findGame(id))); },
+  'share-stats'() { shareText(statsShareText()); },
   'rename-open'({ id }) { openSheet({ type: 'rename', playerId: id }); },
   // A player with games is only flagged, so their past games and stats keep their name.
   'delete-player'({ id }) {
@@ -1342,6 +1490,12 @@ document.addEventListener('submit', e => {
   if (!fn) return;
   e.preventDefault();
   fn(new FormData(e.target), e.target);
+});
+
+// Typing a quick-game name only updates the draft, so the field keeps focus.
+document.addEventListener('input', e => {
+  const el = e.target;
+  if (el.dataset.input === 'guest-name') ui.draft.guestNames[+el.dataset.team][+el.dataset.seat] = el.value;
 });
 
 document.addEventListener('change', e => {

@@ -381,7 +381,7 @@ function header(title, { back, right = '' } = {}) {
       + `<button class="sound-btn lang-btn" data-action="toggle-lang" aria-label="${tr('langAria')}">${tr('langBtn')}</button>`;
   return `<header class="bar">
     <div class="bar-left">${left}</div>
-    <h1>${title}</h1>
+    <h1>${back ? '' : '<img class="bar-logo" src="icons/icon-180.png" alt="">'}<span>${title}</span></h1>
     <div class="bar-right">${right}</div>
   </header>`;
 }
@@ -1576,55 +1576,94 @@ document.addEventListener('keydown', e => {
 });
 
 // ---------- opening animation ----------
-// Chick pops in, two decks' worth of aces fan out behind it, the name rises, then it all
-// fades into the app. A tap anywhere skips straight in.
+// Chick pops in, two decks' worth of aces fan out behind it, the name rises (in both
+// languages), then it all fades into the app. A tap anywhere skips straight in.
 function runSplash() {
   const el = document.getElementById('splash');
   if (!el) return;
   const FAN = [[-42, 1], [-14, 0], [14, 1], [42, 0]];   // [angle, suit index]
+  const other = lang === 'zh' ? 'en' : 'zh';
   el.innerHTML = `
     <div class="splash-stage">
       ${FAN.map(([, t]) => playingCard(ACE, t)).join('')}
       <div class="splash-chick"><img src="icons/icon-512.png" alt=""></div>
     </div>
     <h1 class="splash-title">${tr('appName')}</h1>
+    <p class="splash-alt">${STRINGS[other].appName}</p>
     <p class="splash-tag">${tr('tagline')}</p>
-    <div class="splash-suits">♠ ♥ ♣ ♦</div>`;
-  const cards = el.querySelectorAll('.pcard-wrap');
+    <div class="splash-suits">${['♠', '♥', '♣', '♦'].map(x => `<span>${x}</span>`).join('')}</div>`;
+  const cards = [...el.querySelectorAll('.pcard-wrap')];
   const chick = el.querySelector('.splash-chick');
-  const texts = el.querySelectorAll('.splash-title, .splash-tag, .splash-suits');
+  const texts = [...el.querySelectorAll('.splash-title, .splash-alt, .splash-tag, .splash-suits')];
   const rest = 'translate(-50%, -50%)';
-  cards.forEach(c => { c.style.transform = rest; });
+  const fanned = a => `${rest} rotate(${a}deg) translateY(-34px)`;
+  // hidden until the timeline actually starts, so a slow launch never shows a frozen frame
+  [chick, ...cards, ...texts].forEach(n => { n.style.opacity = '0'; });
+  cards.forEach((c, i) => { c.style.transform = fanned(FAN[i][0]); });
 
   let done = false;
   const exit = () => {
     if (done) return;
     done = true;
-    el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: reducedMotion() ? 200 : 450, easing: 'ease-in', fill: 'forwards' })
+    el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: reducedMotion() ? 300 : 450, easing: 'ease-in', fill: 'forwards' })
       .onfinish = () => el.remove();
     if (!reducedMotion()) el.querySelector('.splash-stage').animate([{ transform: 'none' }, { transform: 'scale(1.08)' }], { duration: 450, fill: 'forwards' });
   };
   el.addEventListener('pointerdown', exit, { once: true });
 
-  if (reducedMotion()) {
-    FAN.forEach(([a], i) => { cards[i].style.transform = `${rest} rotate(${a}deg) translateY(-34px)`; });
-    setTimeout(exit, 1200);
-    return;
-  }
   const pop = 'cubic-bezier(.23, 1, .32, 1)';
-  chick.animate(
-    [{ transform: 'scale(0) rotate(-14deg)', easing: pop }, { transform: 'scale(1.12) rotate(4deg)', offset: 0.6, easing: 'ease-in-out' }, { transform: 'none' }],
-    { duration: 700, delay: 80, fill: 'backwards' },
+  const fadeIn = (n, delay, extra = {}) => n.animate(
+    [{ opacity: 0, ...extra.from }, { opacity: 1, ...extra.to }],
+    { duration: extra.duration ?? 520, delay, easing: pop, fill: 'both' },
   );
-  FAN.forEach(([a], i) => cards[i].animate(
-    [{ transform: `${rest} rotate(0deg) translateY(20px) scale(.6)`, opacity: 0 }, { transform: `${rest} rotate(${a}deg) translateY(-34px)`, opacity: 1 }],
-    { duration: 620, delay: 380 + i * 90, easing: pop, fill: 'both' },
-  ));
-  texts.forEach((t, i) => t.animate(
-    [{ opacity: 0, transform: 'translateY(16px)' }, { opacity: 1, transform: 'none' }],
-    { duration: 520, delay: 820 + i * 140, easing: pop, fill: 'backwards' },
-  ));
-  setTimeout(exit, 2600);
+
+  const play = () => {
+    if (done) return;
+    if (reducedMotion()) {
+      // Reduce Motion: no zooming or swinging, just a gentle fade-in, piece by piece
+      fadeIn(chick, 0, { duration: 500 });
+      cards.forEach((c, i) => fadeIn(c, 250 + i * 120, { duration: 450 }));
+      texts.forEach((t, i) => fadeIn(t, 800 + i * 150, { duration: 450 }));
+      setTimeout(exit, 4200);
+      return;
+    }
+    chick.animate(
+      [
+        { opacity: 0, transform: 'scale(0) rotate(-14deg)', easing: pop },
+        { opacity: 1, transform: 'scale(1.12) rotate(4deg)', offset: 0.6, easing: 'ease-in-out' },
+        { opacity: 1, transform: 'none' },
+      ],
+      { duration: 700, delay: 80, fill: 'both' },
+    );
+    cards.forEach((c, i) => fadeIn(c, 380 + i * 90, {
+      duration: 620,
+      from: { transform: `${rest} rotate(0deg) translateY(20px) scale(.6)` },
+      to: { transform: fanned(FAN[i][0]) },
+    }));
+    texts.forEach((t, i) => fadeIn(t, 820 + i * 130, { from: { transform: 'translateY(16px)' }, to: { transform: 'none' } }));
+
+    // second beat: the aces wave, the chick hops, the suits light up one by one
+    cards.forEach((c, i) => c.animate(
+      [{ transform: fanned(FAN[i][0]) }, { transform: `${fanned(FAN[i][0])} translateY(-16px)`, offset: 0.45 }, { transform: fanned(FAN[i][0]) }],
+      { duration: 560, delay: 1900 + i * 110, easing: 'ease-in-out', composite: 'replace' },
+    ));
+    chick.animate(
+      [{ transform: 'none' }, { transform: 'translateY(-16px) scale(1.04)', offset: 0.3 }, { transform: 'none', offset: 0.55 }, { transform: 'translateY(-8px)', offset: 0.75 }, { transform: 'none' }],
+      { duration: 900, delay: 2500, easing: 'ease-in-out' },
+    );
+    el.querySelectorAll('.splash-suits span').forEach((x, i) => x.animate(
+      [{ transform: 'none', filter: 'none' }, { transform: 'scale(1.45)', filter: 'drop-shadow(0 0 8px rgba(242, 196, 92, .9))', offset: 0.4 }, { transform: 'none', filter: 'none' }],
+      { duration: 480, delay: 2300 + i * 160, easing: 'ease-out' },
+    ));
+    setTimeout(exit, 4800);
+  };
+
+  // Start once the chick image is ready and the screen has really painted. On an iPhone
+  // Home Screen launch, script can run while the system launch screen is still up.
+  const img = chick.querySelector('img');
+  const ready = img.decode ? img.decode().catch(() => {}) : Promise.resolve();
+  Promise.race([ready, new Promise(r => setTimeout(r, 900))])
+    .then(() => requestAnimationFrame(() => requestAnimationFrame(play)));
 }
 
 // ---------- boot ----------

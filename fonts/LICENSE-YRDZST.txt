@@ -1,0 +1,10 @@
+杨任东竹石体 (YRDZST) Semibold, version 1.23 (2017)
+Designer: 杨任东 (Yang Rendong), 任东视觉
+
+License, as embedded in the font file:
+  授权全社会免费商用
+  (Licensed free for commercial use by everyone.)
+
+The font's embedding permission (OS/2 fsType) allows embedding.
+fonts/zhushi-zh.woff2 is a subset holding only the Chinese characters this app displays.
+More from the designer: WeChat official account "杨任东字体".

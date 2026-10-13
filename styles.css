@@ -583,34 +583,25 @@ tr[data-action]:active td { background: var(--fill); }
 .sheet .chip.on { background: var(--accent); color: var(--on-accent); }
 .sheet .seg { background: var(--fill); }
 .sheet .add-form input { background: var(--cell); }
-.gold-ink { color: var(--gold-text); }
 
 .label { font-weight: 600; font-size: 15px; color: var(--label); margin-top: 4px !important; }
 .big-seg button { min-height: 46px; font-size: 17px; }
 .sheet .big-seg button.on.t0 { background: var(--red); color: #fff; }
 .sheet .big-seg button.on.t1 { background: var(--blue); color: #fff; }
 
-/* levels-up counter: big round − and + around the number */
-.stepper {
-  display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px;
-  padding: 12px; border-radius: 20px; background: var(--cell);
+/* +1 / +2 / +3: one tap saves the hand */
+.gain-btns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 4px; }
+.gain-btn {
+  min-height: 84px; border-radius: 20px;
+  font-size: 34px; font-weight: 800; color: #fff;
+  font-variant-numeric: tabular-nums;
+  box-shadow: inset 0 0 0 3px transparent;
+  transition: transform 140ms var(--ease-out), filter 140ms ease;
 }
-.step-btn {
-  width: 60px; height: 60px; border-radius: 50%;
-  display: grid; place-items: center;
-  font-size: 32px; font-weight: 700; line-height: 1; color: #fff;
-  transition: transform 140ms var(--ease-out), opacity 160ms ease;
-}
-.stepper.t0 .step-btn { background: var(--red); }
-.stepper.t1 .step-btn { background: var(--blue); }
-.step-btn:active:not(:disabled) { transform: scale(.9); }
-.step-btn:disabled { opacity: .25; }
-.step-mid { display: flex; flex-direction: column; align-items: center; text-align: center; min-width: 0; }
-.step-num { font-size: 40px; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
-.stepper.t0 .step-num { color: var(--red-text); }
-.stepper.t1 .step-num { color: var(--blue-text); }
-.step-prev { font-size: 17px; margin-top: 2px; }
-.step-hint { font-size: 13px; color: var(--label-2); margin-top: 2px; }
+.gain-btn.t0 { background: var(--red); }
+.gain-btn.t1 { background: var(--blue); }
+.gain-btn:active { transform: scale(.95); filter: brightness(.92); }
+.gain-btn.on { box-shadow: inset 0 0 0 3px #fff, 0 0 0 3px var(--accent); }
 
 .menu { display: flex; flex-direction: column; background: var(--cell); border-radius: 16px; overflow: hidden; }
 .menu button { text-align: left; padding: 13px 16px; min-height: 50px; font-size: 17px; display: flex; flex-direction: column; justify-content: center; transition: background-color 140ms ease; }

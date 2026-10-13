@@ -138,15 +138,10 @@ const STRINGS = {
     deletePlayerBodyUsed: n => `${n} comes off the player list. Their past games stay in history and stats under their name. You can undo right after if you change your mind.`,
 
     // sheets
-    winsGame: 'Wins the game!',
-    noClearA: 'Doesn’t clear A',
     fixHand: 'Fix this hand',
     niceHand: 'Nice hand!',
     whoFirst: 'Who went out first?',
     optional: 'Optional, for stats',
-    levelsUp: 'How many levels up?',
-    fewerLevels: 'One level fewer',
-    moreLevels: 'One level more',
     deleteHand: 'Delete this hand',
     setLevels: 'Set levels by hand',
     setLevelsSub: 'For house rules this app doesn’t cover',
@@ -351,15 +346,10 @@ const STRINGS = {
     deletePlayerBodyUsed: n => `${n}会从玩家列表中移除，以往的比赛仍以这个名字保留在历史和统计中。改变主意的话，可以马上撤销。`,
 
     // sheets
-    winsGame: '赢下比赛！',
-    noClearA: '过不了A',
     fixHand: '修改这一局',
     niceHand: '打得好！',
     whoFirst: '谁是头游？',
     optional: '选填，用于统计',
-    levelsUp: '升几级？',
-    fewerLevels: '少升一级',
-    moreLevels: '多升一级',
     deleteHand: '删除这一局',
     setLevels: '手动设置级数',
     setLevelsSub: '用于本应用没有涵盖的规则',

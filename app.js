@@ -506,7 +506,7 @@ function dealLog(g, st) {
 function newDraft(teams) {
   return {
     teams: teams ? teams.map(t => t.slice()) : [[null, null], [null, null]],
-    rules: { aPassWith14: false, aMaxFails: 0 },
+    rules: { aPassWith14: false, aMaxFails: 3 },
     start: { levels: [0, 0], declarer: null },
     advanced: false,
     guest: !teams,                       // quick game (the default): typed names, nothing saved

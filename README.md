@@ -14,7 +14,7 @@ Shuffle up and have fun! 🃏
 
 - **Big playing-card scoreboard.** Each team's level shows as a card you can read from across the table. It flips over every time a team climbs.
 - **Two taps per hand.** Tap the team that won, then tap where the partner finished (1-2, 1-3 or 1-4). The app works out the new level.
-- **Knows the rules.** Shows whose level is being played and which heart is wild, and handles the "you must win on A" rule. You can also turn on house rules like "1-4 counts on A" or "back to 2 after 3 missed tries".
+- **Knows the rules.** Shows whose level is being played and which heart is wild, and handles the "you must win on A" rule. By default a team gets 3 tries at A before dropping back to 2, and you can change house rules like "1-4 counts on A" or "unlimited tries on A".
 - **Mistakes are no big deal.** Undo the last hand, tap any earlier hand to edit or delete it, and every level after it fixes itself.
 - **Quick game or tracked game.** A quick game is the fastest way to start: type four names, or leave them as 1 2 3 4, and play. Nothing is saved. Switch to **Track stats** when you want the game to count.
 - **Player stats.** Add your regulars once. The app tracks win rates for every player, every partnership and every head-to-head matchup. You can rename or delete players any time.
@@ -127,7 +127,7 @@ Tribute doesn't change anyone's level, so you don't record it in the app.
 
 - Reaching A isn't enough. Your team has to **win a hand while playing at A**.
 - Under the usual rule that hand must be a **1-2 or 1-3 finish**. Winning 1-4 doesn't count and you stay on A. Some tables accept any win: choose **Any win counts** in the app's house rules.
-- Some tables send a team **back to 2 after 3 failed tries at A**. Turn that on with **Missed tries on A → 3 tries**.
+- By default the app gives a team **3 tries at A**. Fail all three and the team drops **back to 2**. Tables that allow endless tries can pick **Missed tries on A → Unlimited**.
 - Win at A and your team takes the whole game. Win it without the other team taking a single hand, and that's **Spring (春天)!**
 
 Now go deal some cards. Good luck, and may your bombs always land! 💣♠♥♣♦

@@ -374,15 +374,16 @@ function render() {
   afterRender();
 }
 
+// iOS-style navigation: a slim toolbar row (Back on the leading edge, tools on the trailing
+// edge), then a large left-aligned title.
 function header(title, { back, right = '' } = {}) {
-  const left = back
-    ? `<button class="back" data-action="${back}">${tr('back')}</button>`
+  const left = back ? `<button class="back" data-action="${back}">${tr('back')}</button>` : '';
+  const tools = back ? right
     : `<button class="sound-btn ${sound.muted ? 'off' : ''}" data-action="toggle-sound" aria-label="${tr(sound.muted ? 'soundOn' : 'soundOff')}"><span>♪</span>${tr(sound.muted ? 'off' : 'on')}</button>`
-      + `<button class="sound-btn lang-btn" data-action="toggle-lang" aria-label="${tr('langAria')}">${tr('langBtn')}</button>`;
+      + `<button class="sound-btn lang-btn" data-action="toggle-lang" aria-label="${tr('langAria')}">${tr('langBtn')}</button>${right}`;
   return `<header class="bar">
-    <div class="bar-left">${left}</div>
+    <div class="bar-row"><div class="bar-left">${left}</div><div class="bar-right">${tools}</div></div>
     <h1>${back ? '' : '<img class="bar-logo" src="icons/icon-180.png" alt="">'}<span>${title}</span></h1>
-    <div class="bar-right">${right}</div>
   </header>`;
 }
 

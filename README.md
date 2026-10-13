@@ -45,12 +45,89 @@ Everything is saved **on the device** you're using. Nothing is uploaded anywhere
 
 Export a backup every so often. It's cheap insurance for years of bragging rights.
 
-## Guandan rules in 30 seconds
+## How to play Guandan (掼蛋)
 
-- Four players, two partnerships, two decks with all four jokers.
-- Each team has a level, starting at **2**. A hand is played at the level of the team that won the last one. The heart of that rank is **wild**.
-- When your team wins a hand, you go up based on where your partner finished:
-  **1-2 → +3**, **1-3 → +2**, **1-4 → +1**.
-- To win the game, your team has to win a hand while playing **A**. Usually a 1-4 finish doesn't count.
+These are the common rules. Plenty of tables have their own house rules, and the app lets you set the ones that change scoring.
+
+### Setup
+
+- **Four players in two teams.** Partners sit opposite each other, so play alternates between the teams.
+- **Two full decks with all four jokers**, 108 cards in all. Everyone gets **27 cards**.
+
+### Levels (级) and the wild card (逢人配)
+
+- Each team has a **level**. Both teams start at **2** and climb toward **A**.
+- Every hand is played at the level of the team that won the last hand. In the first hand, both teams are at 2.
+- **The level card is promoted.** If you're playing 7s, every 7 ranks above the A.
+- **The heart of the level rank is wild (逢人配).** When playing 7s, the two 7♥ can stand in for any card except a joker. They're the most useful cards in the deck.
+
+**Card order, high to low:** red joker › black joker › level card › A › K › Q › J › 10 › 9 › 8 › 7 › 6 › 5 › 4 › 3 › 2
+
+Suits don't matter for ranking. They only count for straight flushes.
+
+### What you can play
+
+| Play | Chinese | Example |
+| --- | --- | --- |
+| Single | 单张 | 8 |
+| Pair | 对子 | 8 8 |
+| Three of a kind | 三张 | 8 8 8 |
+| Full house | 三带二 | 8 8 8 + 4 4 |
+| Straight (exactly 5 cards) | 顺子 | 4 5 6 7 8 |
+| Three pairs in a row | 三连对 (木板) | 4 4 5 5 6 6 |
+| Two triples in a row | 三同连张 (钢板) | 4 4 4 5 5 5 |
+
+- An A can go at either end of a run: A-2-3-4-5 is the lowest straight, 10-J-Q-K-A the highest. For straights and runs, the level card goes back to its normal place.
+- To beat a play, put down **the same kind of play with the same number of cards, but higher**. A full house is compared by its three of a kind.
+
+### Bombs (炸弹)
+
+A bomb beats any ordinary play, whatever it is. Bombs beat each other in this order, from weakest to strongest:
+
+1. **4 of a kind**
+2. **5 of a kind**
+3. **Straight flush** (同花顺): 5 cards in a row, all the same suit
+4. **6 of a kind**, then **7**, then **8**
+5. **All four jokers** (天王炸), which nothing beats
+
+Between two bombs of the same size, the higher rank wins.
+
+### Playing a hand
+
+- The leader plays any valid play. Going around the table, each player either beats the last play or passes.
+- When everyone else passes, whoever played last wins the trick and leads anything they like.
+- **Passing the lead to your partner (接风).** If you play your last card and nobody beats it, your partner gets the lead.
+- The hand goes on until three players are out. The finishing order is first out (头游), second (二游), third (三游) and last (末游).
+
+### Who goes up
+
+The team of the first-out player wins the hand. How far they climb depends on where the partner finished:
+
+| Finish | Name | Levels gained |
+| --- | --- | --- |
+| 1st and 2nd | 双下 (opponents are both last) | **+3** |
+| 1st and 3rd | | **+2** |
+| 1st and 4th | | **+1** |
+
+The losing team stays where it is.
+
+### Tribute (进贡) before each new hand
+
+From the second hand onward, the losers pay tribute before play starts:
+
+- **Single tribute (单贡):** the last-out player gives their **highest card** to the first-out player. The wild heart can't be given.
+- **Double tribute (双贡):** after a 1-2 finish, both losers give their highest card. The higher card goes to first out, the other to second out.
+- **Returning a card (还贡):** each player who received a card gives one back. It's usually any card **10 or lower**.
+- **Refusing tribute (抗贡):** if the side that owes tribute holds **both red jokers**, no tribute is paid.
+- **Who leads:** whoever paid tribute (in a double tribute, the one who gave the higher card). If tribute was refused, first out from the last hand leads.
+
+Tribute doesn't change anyone's level, so you don't record it in the app.
+
+### Winning the game: getting past A
+
+- Reaching A isn't enough. Your team has to **win a hand while playing at A**.
+- Under the usual rule that hand must be a **1-2 or 1-3 finish**. Winning 1-4 doesn't count and you stay on A. Some tables accept any win: choose **Any win counts** in the app's house rules.
+- Some tables send a team **back to 2 after 3 failed tries at A**. Turn that on with **Missed tries on A → 3 tries**.
+- Win at A and your team takes the whole game. Win it without the other team taking a single hand, and that's **Spring (春天)!**
 
 Now go deal some cards. Good luck, and may your bombs always land! 💣♠♥♣♦

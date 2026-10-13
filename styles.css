@@ -414,6 +414,8 @@ select {
 
 .player-row { display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; transition: background-color 160ms ease; }
 .pr-name { flex: 1; font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.player-row .row-btn { width: 36px; height: 36px; flex-shrink: 0; margin: -6px -6px -6px -4px; font-size: 16px; }
+.player-row .row-btn.del:active, .player-row .row-btn.del:hover { color: var(--red); }
 .sub { font-size: 14px; color: var(--on-felt-muted); margin: 4px 4px -8px; }
 
 .add-form { display: flex; gap: 10px; }

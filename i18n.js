@@ -130,7 +130,10 @@ const STRINGS = {
     showInList: 'Show in player list',
     hideFromNew: 'Hide from new games',
     deletePlayer: 'Delete player',
-    cantDelete: 'Players with games can be hidden but not deleted, so everyone’s stats stay correct.',
+    editName: 'Edit name',
+    deletePlayerTitle: n => `Delete ${n}?`,
+    deletePlayerBody: 'They come off the player list. You can undo right after if you change your mind.',
+    deletePlayerBodyUsed: n => `${n} comes off the player list. Their past games stay in history and stats under their name. You can undo right after if you change your mind.`,
 
     // sheets
     winsGame: 'Wins the game!',
@@ -310,7 +313,10 @@ const STRINGS = {
     showInList: '在玩家列表中显示',
     hideFromNew: '在新比赛中隐藏',
     deletePlayer: '删除玩家',
-    cantDelete: '有比赛记录的玩家只能隐藏、不能删除，这样大家的统计才准确。',
+    editName: '修改名字',
+    deletePlayerTitle: n => `删除${n}？`,
+    deletePlayerBody: '会从玩家列表中移除。改变主意的话，可以马上撤销。',
+    deletePlayerBodyUsed: n => `${n}会从玩家列表中移除，以往的比赛仍以这个名字保留在历史和统计中。改变主意的话，可以马上撤销。`,
 
     // sheets
     winsGame: '赢下比赛！',

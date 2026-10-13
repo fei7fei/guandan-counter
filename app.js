@@ -534,7 +534,7 @@ function renderNewGame() {
           </div>`).join('')}
       </div>
       <div class="chip-row">
-        ${prev && prev.teams.flat().every(id => findPlayer(id)) ? `<button class="chip" data-action="same-teams">${tr('sameTeams')}</button>` : ''}
+        ${prev && prev.teams.flat().every(id => findPlayer(id) && !findPlayer(id).deleted) ? `<button class="chip" data-action="same-teams">${tr('sameTeams')}</button>` : ''}
         ${picked.filter(Boolean).length === 4 ? `<button class="chip" data-action="shuffle-teams">${tr('shuffle')}</button><button class="chip" data-action="swap-teams">${tr('swap')}</button>` : ''}
       </div>
 
@@ -694,14 +694,17 @@ function renderStats() {
 function renderPlayers() {
   if (ui.playerId && findPlayer(ui.playerId)) return renderPlayerDetail(findPlayer(ui.playerId));
   const { players: stats } = computeStats();
-  const active = data.players.filter(p => !p.archived).sort((a, b) => a.name.localeCompare(b.name));
-  const archived = data.players.filter(p => p.archived).sort((a, b) => a.name.localeCompare(b.name));
+  const listed = data.players.filter(p => !p.deleted).sort((a, b) => a.name.localeCompare(b.name));
+  const active = listed.filter(p => !p.archived);
+  const archived = listed.filter(p => p.archived);
   const row = p => {
     const s = stats[p.id];
     return `<li class="player-row" data-action="open-player" data-id="${p.id}">
       <span class="avatar">${esc(p.name.slice(0, 1).toUpperCase())}</span>
       <span class="pr-name">${esc(p.name)}</span>
       <span class="muted">${s?.games ? `${s.wins}-${s.games - s.wins}, ${pct(s.wins, s.games)}` : tr('readyToPlay')}</span>
+      <button class="icon-btn row-btn" data-action="rename-open" data-id="${p.id}" aria-label="${tr('editName')}">✎</button>
+      <button class="icon-btn row-btn del" data-action="delete-player" data-id="${p.id}" aria-label="${tr('deletePlayer')}">✕</button>
     </li>`;
   };
   return `
@@ -737,7 +740,6 @@ function renderPlayerDetail(p) {
     .filter(([k]) => k.startsWith(p.id + '>'))
     .map(([k, v]) => ({ other: k.split('>')[1], ...v }))
     .sort(byRecord);
-  const used = data.games.some(g => g.teams.flat().includes(p.id));
 
   const table = (title, rows, emptyMsg) => `
     <section class="panel">
@@ -760,7 +762,7 @@ function renderPlayerDetail(p) {
       </div>
       ${table(tr('withPartner'), partners, tr('noPartner'))}
       ${table(tr('vsOpp'), opps, tr('noRivals'))}
-      <section class="panel">
+      ${p.deleted ? '' : `<section class="panel">
         <h2>${tr('edit')}</h2>
         <form class="add-form" data-form="rename-player" data-id="${p.id}">
           <label class="sr" for="rename">${tr('name')}</label>
@@ -769,10 +771,9 @@ function renderPlayerDetail(p) {
         </form>
         <div class="actions-row">
           <button class="btn" data-action="archive-player" data-id="${p.id}">${tr(p.archived ? 'showInList' : 'hideFromNew')}</button>
-          ${used ? '' : `<button class="btn danger" data-action="delete-player" data-id="${p.id}">${tr('deletePlayer')}</button>`}
+          <button class="btn danger" data-action="delete-player" data-id="${p.id}">${tr('deletePlayer')}</button>
         </div>
-        ${used ? `<p class="hint small">${tr('cantDelete')}</p>` : ''}
-      </section>
+      </section>`}
     </div>`;
 }
 
@@ -780,6 +781,7 @@ function renderPlayerDetail(p) {
 function openSheet(sheet) {
   ui.sheet = sheet;
   ui.sheetIsNew = true;
+  document.getElementById('toast').classList.remove('show'); // it would sit on top of the sheet
   render();
 }
 
@@ -810,7 +812,7 @@ function renderSheet() {
     return;
   }
   delete root.dataset.leaving;
-  const body = { deal: sheetDeal, menu: sheetMenu, adjust: sheetAdjust, pick: sheetPick, confirm: sheetConfirm }[s.type]();
+  const body = { deal: sheetDeal, menu: sheetMenu, adjust: sheetAdjust, pick: sheetPick, confirm: sheetConfirm, rename: sheetRename }[s.type]();
   root.innerHTML = `
     <div class="backdrop ${ui.sheetIsNew ? 'enter' : ''}" data-action="close-sheet"></div>
     <div class="sheet ${ui.sheetIsNew ? 'enter' : ''}" role="dialog" aria-modal="true">
@@ -891,7 +893,7 @@ function sheetPick() {
   const d = ui.draft;
   const s = ui.sheet;
   const taken = new Set(d.teams.flat().filter(Boolean));
-  const avail = data.players.filter(p => !p.archived && !taken.has(p.id)).sort((a, b) => a.name.localeCompare(b.name));
+  const avail = data.players.filter(p => !p.archived && !p.deleted && !taken.has(p.id)).sort((a, b) => a.name.localeCompare(b.name));
   return `
     <h2><span class="suit t${s.team}">${SUIT[s.team]}</span>${tr('seat', tr('teamFull')[s.team], s.seat + 1)}</h2>
     <form class="add-form" data-form="add-pick">
@@ -901,6 +903,18 @@ function sheetPick() {
     </form>
     ${avail.length ? `<div class="pick-list">${avail.map(p => `<button data-action="pick-player" data-id="${p.id}"><span class="avatar">${esc(p.name.slice(0, 1).toUpperCase())}</span>${esc(p.name)}</button>`).join('')}</div>`
       : `<p class="muted">${tr(data.players.length ? 'allSeated' : 'noPlayersYet')}</p>`}
+    <button class="btn subtle full" data-action="close-sheet">${tr('cancel')}</button>`;
+}
+
+function sheetRename() {
+  const p = findPlayer(ui.sheet.playerId);
+  return `
+    <h2>${tr('editName')}</h2>
+    <form class="add-form" data-form="rename-player" data-id="${p.id}">
+      <label class="sr" for="rename-sheet">${tr('name')}</label>
+      <input id="rename-sheet" name="name" value="${esc(p.name)}" autocomplete="off" maxlength="30" required>
+      <button class="btn ink">${tr('save')}</button>
+    </form>
     <button class="btn subtle full" data-action="close-sheet">${tr('cancel')}</button>`;
 }
 
@@ -1010,7 +1024,7 @@ function celebrate() {
 function addPlayer(name) {
   name = name.trim().replace(/\s+/g, ' ');
   if (!name) return null;
-  const existing = data.players.find(p => p.name.toLowerCase() === name.toLowerCase());
+  const existing = data.players.find(p => !p.deleted && p.name.toLowerCase() === name.toLowerCase());
   if (existing) {
     if (existing.archived) mutate(tr('isBack', existing.name), () => { existing.archived = false; });
     else { toast(tr('alreadyAtTable', existing.name)); sound.play('nope'); }
@@ -1033,7 +1047,7 @@ function switchView() {
 
 // Sound for each action; anything not listed gets a soft tap.
 const ACTION_SOUND = {
-  record: 'open', 'game-menu': 'open', slot: 'open', 'edit-deal': 'open', 'adjust-open': 'open',
+  record: 'open', 'game-menu': 'open', slot: 'open', 'edit-deal': 'open', 'adjust-open': 'open', 'rename-open': 'open', 'delete-player': 'open',
   'deal-place': 'chip', 'adjust-save': 'chip', 'start-game': 'chip',
   undo: 'undo', 'undo-deal': 'undo',
   'delete-deal': 'del', 'confirm-run': 'del', 'clear-slot': 'del',
@@ -1137,7 +1151,7 @@ const actions = {
   },
   rematch() {
     const g = activeGame();
-    ui.draft = newDraft(g.teams);
+    ui.draft = newDraft(g.teams.map(t => t.map(id => (findPlayer(id)?.deleted ? null : id))));
     ui.draft.rules = { ...g.rules };
     ui.fanDealt = false;
     data.activeGameId = null;
@@ -1250,10 +1264,25 @@ const actions = {
     const p = findPlayer(id);
     mutate(tr(p.archived ? 'isBack' : 'isHidden', p.name), () => { p.archived = !p.archived; });
   },
+  'rename-open'({ id }) { openSheet({ type: 'rename', playerId: id }); },
+  // A player with games is only flagged, so their past games and stats keep their name.
   'delete-player'({ id }) {
     const p = findPlayer(id);
-    ui.playerId = null;
-    mutate(tr('deletedPlayer', p.name), () => { data.players = data.players.filter(x => x.id !== id); });
+    const used = data.games.some(g => g.teams.flat().includes(id));
+    openSheet({
+      type: 'confirm',
+      title: tr('deletePlayerTitle', esc(p.name)),
+      body: used ? tr('deletePlayerBodyUsed', esc(p.name)) : tr('deletePlayerBody'),
+      label: tr('deletePlayer'),
+      run: () => {
+        ui.playerId = null;
+        mutate(tr('deletedPlayer', p.name), () => {
+          if (used) findPlayer(id).deleted = true;
+          else data.players = data.players.filter(x => x.id !== id);
+          if (ui.draft) ui.draft.teams = ui.draft.teams.map(t => t.map(x => (x === id ? null : x)));
+        });
+      },
+    });
   },
   async export() {
     const json = JSON.stringify(data, null, 2);
@@ -1285,11 +1314,12 @@ const forms = {
   'rename-player'(fd, form) {
     const p = findPlayer(form.dataset.id);
     const name = String(fd.get('name')).trim().replace(/\s+/g, ' ');
-    if (!name || name === p.name) return;
-    if (data.players.some(x => x !== p && x.name.toLowerCase() === name.toLowerCase())) {
+    if (!name || name === p.name) return closeSheet();
+    if (data.players.some(x => x !== p && !x.deleted && x.name.toLowerCase() === name.toLowerCase())) {
       sound.play('nope');
       return toast(tr('alreadyAtTable', name));
     }
+    ui.sheet = null;
     mutate(tr('nowPlayingAs', name), () => { p.name = name; });
   },
 };

@@ -19,16 +19,17 @@
   <main id="view"></main>
 
   <nav id="tabs" aria-label="Sections">
-    <button data-action="tab" data-tab="play"><span class="ti" aria-hidden="true">♠</span>Play</button>
-    <button data-action="tab" data-tab="history"><span class="ti" aria-hidden="true">♦</span>History</button>
-    <button data-action="tab" data-tab="stats"><span class="ti" aria-hidden="true">♣</span>Stats</button>
-    <button data-action="tab" data-tab="players"><span class="ti" aria-hidden="true">♥</span>Players</button>
+    <button data-action="tab" data-tab="play"><span class="ti" aria-hidden="true">♠</span><span class="tl">Play</span></button>
+    <button data-action="tab" data-tab="history"><span class="ti" aria-hidden="true">♦</span><span class="tl">History</span></button>
+    <button data-action="tab" data-tab="stats"><span class="ti" aria-hidden="true">♣</span><span class="tl">Stats</span></button>
+    <button data-action="tab" data-tab="players"><span class="ti" aria-hidden="true">♥</span><span class="tl">Players</span></button>
   </nav>
 
   <div id="sheet-root"></div>
   <div id="toast" role="status" aria-live="polite"></div>
   <input type="file" id="import-file" accept="application/json,.json" hidden>
 
+  <script src="i18n.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

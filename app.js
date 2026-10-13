@@ -5,13 +5,36 @@ const RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
 const ACE = 12;
 const BUMP = { 2: 3, 3: 2, 4: 1 };                 // partner's finishing place -> levels gained
 const PLACE_LABEL = { 2: '1-2', 3: '1-3', 4: '1-4' };
-const PLACE_NAME = { 2: 'Partner 2nd', 3: 'Partner 3rd', 4: 'Partner 4th' };
-const TEAM = ['Red', 'Blue'];
 const SUIT = ['♥', '♠'];
 const STORE_KEY = 'guandan-counter/v1';
 const MUTE_KEY = 'guandan-counter/muted';
+const LANG_KEY = 'guandan-counter/lang';
 const DAY = 86400000;
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// ---------- language ----------
+// Saved choice first, otherwise follow the device language.
+let lang = (() => {
+  try {
+    const saved = localStorage.getItem(LANG_KEY);
+    if (saved in STRINGS) return saved;
+  } catch (e) { /* ignore */ }
+  return /^zh/i.test(navigator.language) ? 'zh' : 'en';
+})();
+
+// Look up a string; functions get the extra arguments (names, numbers).
+function tr(key, ...args) {
+  const v = STRINGS[lang][key] ?? STRINGS.en[key];
+  return typeof v === 'function' ? v(...args) : v;
+}
+const teamName = t => tr('team')[t];
+
+function applyLang() {
+  document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
+  document.title = lang === 'zh' ? '掼蛋计分器' : 'Guandan Counter';
+  document.getElementById('tabs').setAttribute('aria-label', tr('sections'));
+  document.querySelectorAll('#tabs [data-tab]').forEach(b => { b.querySelector('.tl').textContent = tr('tabs')[b.dataset.tab]; });
+}
 
 // ---------- storage ----------
 function emptyData() {
@@ -37,7 +60,7 @@ function save() {
   try {
     localStorage.setItem(STORE_KEY, JSON.stringify(data));
   } catch (e) {
-    toast('Could not save. Storage is unavailable.');
+    toast(tr('storageFail'));
   }
 }
 
@@ -165,7 +188,7 @@ const sound = (() => {
 const uid = () => Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-4);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const findPlayer = id => data.players.find(p => p.id === id);
-const pname = id => findPlayer(id)?.name ?? 'Unknown';
+const pname = id => findPlayer(id)?.name ?? tr('unknown');
 const teamNames = team => team.map(pname).join(' & ');
 const findGame = id => data.games.find(g => g.id === id);
 const activeGame = () => {
@@ -174,8 +197,9 @@ const activeGame = () => {
 };
 const pct = (a, b) => (b ? Math.round((100 * a) / b) + '%' : '-');
 const rank = lv => RANKS[lv];
-const fmtDate = t => new Date(t).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-const fmtTime = t => new Date(t).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+const locale = () => (lang === 'zh' ? 'zh-CN' : undefined);
+const fmtDate = t => new Date(t).toLocaleDateString(locale(), { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+const fmtTime = t => new Date(t).toLocaleTimeString(locale(), { hour: 'numeric', minute: '2-digit' });
 
 // Every change goes through here so it can be undone.
 function mutate(label, fn) {
@@ -192,7 +216,7 @@ function undo() {
   if (!u) return;
   data = JSON.parse(u.snapshot);
   save();
-  toast('Undone: ' + u.label);
+  toast(tr('undone', u.label));
   render();
 }
 
@@ -335,8 +359,9 @@ function render() {
 
 function header(title, { back, right = '' } = {}) {
   const left = back
-    ? `<button class="back" data-action="${back}">‹ Back</button>`
-    : `<button class="sound-btn ${sound.muted ? 'off' : ''}" data-action="toggle-sound" aria-label="${sound.muted ? 'Turn sound on' : 'Turn sound off'}"><span>♪</span>${sound.muted ? 'Off' : 'On'}</button>`;
+    ? `<button class="back" data-action="${back}">${tr('back')}</button>`
+    : `<button class="sound-btn ${sound.muted ? 'off' : ''}" data-action="toggle-sound" aria-label="${tr(sound.muted ? 'soundOn' : 'soundOff')}"><span>♪</span>${tr(sound.muted ? 'off' : 'on')}</button>`
+      + `<button class="sound-btn lang-btn" data-action="toggle-lang" aria-label="${tr('langAria')}">${tr('langBtn')}</button>`;
   return `<header class="bar">
     <div class="bar-left">${left}</div>
     <h1>${title}</h1>
@@ -371,39 +396,38 @@ function renderPlay() {
   const status = done
     ? `<div class="status champ t${st.winner}">
          <span class="crown">♛</span>
-         <strong>${TEAM[st.winner]} takes the game!</strong>
-         <small>${esc(teamNames(g.teams[st.winner]))} climbed all the way past A.</small>
+         <strong>${tr('takesGame', teamName(st.winner))}</strong>
+         <small>${tr('climbedPastA', esc(teamNames(g.teams[st.winner])))}</small>
        </div>`
     : `<div class="status">
-         <span class="deal-no">Deal ${dealNo}</span>
-         <span class="playing">Playing <b>${pl}s</b>${st.declarer !== null ? `, ${TEAM[st.declarer]}’s level` : ''}</span>
-         <span class="wild"><span class="wild-card">${pl}<i>♥</i></span> is wild</span>
+         <span class="deal-no">${tr('dealNo', dealNo)}</span>
+         <span class="playing">${tr('playing', pl, st.declarer !== null ? teamName(st.declarer) : null)}</span>
+         <span class="wild">${tr('wild', `<span class="wild-card">${pl}<i>♥</i></span>`)}</span>
        </div>`;
 
   const record = done
     ? `<div class="actions-row">
-         <button class="btn gold big" data-action="new-game">Deal a new game</button>
-         <button class="btn big" data-action="rematch">Rematch</button>
+         <button class="btn gold big" data-action="new-game">${tr('dealNew')}</button>
+         <button class="btn big" data-action="rematch">${tr('rematch')}</button>
        </div>`
     : `<div class="record">
-         <p class="hint">Who won this hand?</p>
+         <p class="hint">${tr('whoWon')}</p>
          <div class="record-btns">
-           <button class="chip-btn t0" data-action="record" data-team="0"><span>Red won</span></button>
-           <button class="chip-btn t1" data-action="record" data-team="1"><span>Blue won</span></button>
+           ${[0, 1].map(t => `<button class="chip-btn t${t}" data-action="record" data-team="${t}"><span>${tr('teamWon', teamName(t))}</span></button>`).join('')}
          </div>
        </div>`;
 
   return `
-    ${header('Guandan', { right: `<button class="icon-btn" data-action="game-menu" aria-label="Game options">•••</button>` })}
+    ${header(tr('appTitle'), { right: `<button class="icon-btn" data-action="game-menu" aria-label="${tr('gameOptions')}">•••</button>` })}
     <div class="play-grid">
       <section class="board">
         ${status}
         <div class="teams">${[0, 1].map(t => teamCard(g, st, t)).join('')}</div>
         ${record}
-        <button class="btn subtle undo-deal" data-action="undo-deal" ${g.deals.length ? '' : 'disabled'}>↶ Undo last hand</button>
+        <button class="btn subtle undo-deal" data-action="undo-deal" ${g.deals.length ? '' : 'disabled'}>${tr('undoLast')}</button>
       </section>
       <section class="log panel">
-        <h2>Hands</h2>
+        <h2>${tr('hands')}</h2>
         ${dealLog(g, st)}
       </section>
     </div>`;
@@ -412,13 +436,13 @@ function renderPlay() {
 function teamCard(g, st, t, size = '') {
   const declaring = st.winner === null && st.declarer === t;
   let meta = '';
-  if (st.winner === t) meta = `<span class="badge gold">Champions</span>`;
+  if (st.winner === t) meta = `<span class="badge gold">${tr('champions')}</span>`;
   else if (st.levels[t] === ACE && st.winner === null) {
-    meta = `<span class="badge hot">On A, try ${st.fails[t] + 1}${g.rules.aMaxFails ? ` of ${g.rules.aMaxFails}` : ''}</span>`;
-  } else if (declaring) meta = `<span class="badge">Their level</span>`;
+    meta = `<span class="badge hot">${tr('onA', st.fails[t] + 1, g.rules.aMaxFails)}</span>`;
+  } else if (declaring) meta = `<span class="badge">${tr('theirLevel')}</span>`;
   return `
     <div class="team t${t} ${declaring ? 'declaring' : ''} ${st.winner === t ? 'champ' : ''}">
-      <div class="team-head">${TEAM[t]}</div>
+      <div class="team-head">${teamName(t)}</div>
       <div class="team-players">${esc(teamNames(g.teams[t]))}</div>
       ${playingCard(st.levels[t], t, size)}
       <div class="team-meta">${meta}</div>
@@ -426,25 +450,25 @@ function teamCard(g, st, t, size = '') {
 }
 
 function dealLog(g, st) {
-  if (!g.deals.length) return `<p class="empty">Fresh deck! After each hand, tap the team that won.</p>`;
+  if (!g.deals.length) return `<p class="empty">${tr('freshDeck')}</p>`;
   let n = 0;
   const rows = g.deals.map((d, i) => {
     const s = st.steps[i];
     if (d.type === 'adjust') {
       return `<li class="deal adjust" data-action="edit-deal" data-game="${g.id}" data-id="${d.id}">
         <span class="num">✎</span>
-        <span class="what">Levels set: Red ${rank(d.levels[0])}, Blue ${rank(d.levels[1])}</span>
+        <span class="what">${tr('levelsSetTo', rank(d.levels[0]), rank(d.levels[1]))}</span>
         <span class="res"></span>
       </li>`;
     }
     n++;
     let res = '';
-    if (s.ignored) res = '<span class="muted">after the game ended</span>';
+    if (s.ignored) res = `<span class="muted">${tr('afterEnd')}</span>`;
     else {
       const ev = s.events.map(e =>
-        e.kind === 'win' ? `<b class="gold-text">Game!</b>` :
-        e.kind === 'afail' ? `<span class="warn">${TEAM[e.team]} missed A${g.rules.aMaxFails ? ` (${e.n}/${g.rules.aMaxFails})` : ''}</span>` :
-        `<span class="warn">${TEAM[e.team]} back to 2</span>`).join(' ');
+        e.kind === 'win' ? `<b class="gold-text">${tr('gameBang')}</b>` :
+        e.kind === 'afail' ? `<span class="warn">${tr('missedA', teamName(e.team), e.n, g.rules.aMaxFails)}</span>` :
+        `<span class="warn">${tr('backTo2', teamName(e.team))}</span>`).join(' ');
       const moved = s.before[d.winner] !== s.after[d.winner]
         ? `<span class="mini t${d.winner}">${rank(s.before[d.winner])}</span><span class="arrow">→</span><span class="mini t${d.winner}">${rank(s.after[d.winner])}</span>`
         : '';
@@ -452,11 +476,11 @@ function dealLog(g, st) {
     }
     return `<li class="deal ${s.ignored ? 'ignored' : ''}" data-action="edit-deal" data-game="${g.id}" data-id="${d.id}">
       <span class="num">${n}</span>
-      <span class="what"><span class="suit t${d.winner}">${SUIT[d.winner]}</span>${TEAM[d.winner]} ${PLACE_LABEL[d.place]}${d.firstOut ? `<span class="first">${esc(pname(d.firstOut))} out first</span>` : ''}</span>
+      <span class="what"><span class="suit t${d.winner}">${SUIT[d.winner]}</span>${teamName(d.winner)} ${PLACE_LABEL[d.place]}${d.firstOut ? `<span class="first">${tr('outFirst', esc(pname(d.firstOut)))}</span>` : ''}</span>
       <span class="res">${res}</span>
     </li>`;
   });
-  return `<ol class="deals">${rows.reverse().join('')}</ol><p class="hint small">Tap any hand to fix it.</p>`;
+  return `<ol class="deals">${rows.reverse().join('')}</ol><p class="hint small">${tr('tapToFix')}</p>`;
 }
 
 // ----- New game -----
@@ -483,8 +507,8 @@ function renderNewGame() {
   const slot = (t, s) => {
     const id = d.teams[t][s];
     return id
-      ? `<div class="slot filled"><button class="slot-name" data-action="slot" data-team="${t}" data-seat="${s}"><span class="avatar">${esc(pname(id).slice(0, 1).toUpperCase())}</span>${esc(pname(id))}</button><button class="slot-x" data-action="clear-slot" data-team="${t}" data-seat="${s}" aria-label="Remove">×</button></div>`
-      : `<div class="slot"><button class="slot-name empty" data-action="slot" data-team="${t}" data-seat="${s}"><span class="avatar ghost">+</span>Pick a player</button></div>`;
+      ? `<div class="slot filled"><button class="slot-name" data-action="slot" data-team="${t}" data-seat="${s}"><span class="avatar">${esc(pname(id).slice(0, 1).toUpperCase())}</span>${esc(pname(id))}</button><button class="slot-x" data-action="clear-slot" data-team="${t}" data-seat="${s}" aria-label="${tr('remove')}">×</button></div>`
+      : `<div class="slot"><button class="slot-name empty" data-action="slot" data-team="${t}" data-seat="${s}"><span class="avatar ghost">+</span>${tr('pickPlayer')}</button></div>`;
   };
 
   const levelSelect = t => `<select data-change="start-level" data-team="${t}">${RANKS.map((r, i) => `<option value="${i}" ${d.start.levels[t] === i ? 'selected' : ''}>${r}</option>`).join('')}</select>`;
@@ -495,57 +519,57 @@ function renderNewGame() {
   ui.fanDealt = true;
 
   return `
-    ${header('New game')}
+    ${header(tr('newGame'))}
     <div class="narrow">
       <div class="hero">
         ${fan}
-        <h2 class="hero-title">Shuffle up and deal!</h2>
-        <p class="muted">Pick two partners for each side. Everyone starts on 2 and races to A.</p>
+        <h2 class="hero-title">${tr('heroTitle')}</h2>
+        <p class="muted">${tr('heroSub')}</p>
       </div>
       <div class="new-teams">
         ${[0, 1].map(t => `
           <div class="panel new-team t${t}">
-            <div class="team-head"><span class="suit t${t}">${SUIT[t]}</span>${TEAM[t]} team</div>
+            <div class="team-head"><span class="suit t${t}">${SUIT[t]}</span>${tr('teamFull')[t]}</div>
             ${slot(t, 0)}${slot(t, 1)}
           </div>`).join('')}
       </div>
       <div class="chip-row">
-        ${prev && prev.teams.flat().every(id => findPlayer(id)) ? `<button class="chip" data-action="same-teams">Same teams as last time</button>` : ''}
-        ${picked.filter(Boolean).length === 4 ? `<button class="chip" data-action="shuffle-teams">Shuffle partners</button><button class="chip" data-action="swap-teams">Swap colors</button>` : ''}
+        ${prev && prev.teams.flat().every(id => findPlayer(id)) ? `<button class="chip" data-action="same-teams">${tr('sameTeams')}</button>` : ''}
+        ${picked.filter(Boolean).length === 4 ? `<button class="chip" data-action="shuffle-teams">${tr('shuffle')}</button><button class="chip" data-action="swap-teams">${tr('swap')}</button>` : ''}
       </div>
 
       <div class="panel rules">
-        <h2>House rules</h2>
+        <h2>${tr('houseRules')}</h2>
         <div class="rule">
-          <div><b>Winning on A</b><p class="muted">A team on A has to win a hand played at A.</p></div>
+          <div><b>${tr('winOnA')}</b><p class="muted">${tr('winOnADesc')}</p></div>
           <div class="seg">
-            <button class="${!d.rules.aPassWith14 ? 'on' : ''}" data-action="rule-14" data-v="0">Needs 1-2 or 1-3</button>
-            <button class="${d.rules.aPassWith14 ? 'on' : ''}" data-action="rule-14" data-v="1">Any win counts</button>
+            <button class="${!d.rules.aPassWith14 ? 'on' : ''}" data-action="rule-14" data-v="0">${tr('needs1213')}</button>
+            <button class="${d.rules.aPassWith14 ? 'on' : ''}" data-action="rule-14" data-v="1">${tr('anyWin')}</button>
           </div>
         </div>
         <div class="rule">
-          <div><b>Missed tries on A</b><p class="muted">Drop back to 2 after this many missed A hands.</p></div>
+          <div><b>${tr('missedTries')}</b><p class="muted">${tr('missedTriesDesc')}</p></div>
           <div class="seg">
-            ${[0, 3].map(n => `<button class="${d.rules.aMaxFails === n ? 'on' : ''}" data-action="rule-fails" data-n="${n}">${n ? n + ' tries' : 'Unlimited'}</button>`).join('')}
+            ${[0, 3].map(n => `<button class="${d.rules.aMaxFails === n ? 'on' : ''}" data-action="rule-fails" data-n="${n}">${n ? tr('tries', n) : tr('unlimited')}</button>`).join('')}
           </div>
         </div>
-        <button class="link" data-action="toggle-advanced">${d.advanced ? '▾' : '▸'} Pick up a game already in progress</button>
+        <button class="link" data-action="toggle-advanced">${d.advanced ? '▾' : '▸'} ${tr('inProgress')}</button>
         ${d.advanced ? `
           <div class="rule">
-            <div><b>Starting levels</b></div>
-            <div class="start-levels"><label class="t0">Red ${levelSelect(0)}</label><label class="t1">Blue ${levelSelect(1)}</label></div>
+            <div><b>${tr('startLevels')}</b></div>
+            <div class="start-levels">${[0, 1].map(t => `<label class="t${t}">${teamName(t)} ${levelSelect(t)}</label>`).join('')}</div>
           </div>
           ${unequal ? `
           <div class="rule">
-            <div><b>Whose level is up next?</b></div>
+            <div><b>${tr('whoseNext')}</b></div>
             <div class="seg">
-              ${[0, 1].map(t => `<button class="${d.start.declarer === t ? 'on' : ''}" data-action="start-decl" data-team="${t}">${TEAM[t]}</button>`).join('')}
+              ${[0, 1].map(t => `<button class="${d.start.declarer === t ? 'on' : ''}" data-action="start-decl" data-team="${t}">${teamName(t)}</button>`).join('')}
             </div>
           </div>` : ''}` : ''}
       </div>
 
-      <button class="btn gold big full" data-action="start-game" ${ready && (!unequal || d.start.declarer !== null) ? '' : 'disabled'}>Let’s play!</button>
-      ${!ready ? `<p class="hint center">Pick four different players to start.</p>` : ''}
+      <button class="btn gold big full" data-action="start-game" ${ready && (!unequal || d.start.declarer !== null) ? '' : 'disabled'}>${tr('letsPlay')}</button>
+      ${!ready ? `<p class="hint center">${tr('pickFour')}</p>` : ''}
     </div>`;
 }
 
@@ -553,7 +577,7 @@ function renderNewGame() {
 function renderHistory() {
   if (ui.gameId && findGame(ui.gameId)) return renderGameDetail(findGame(ui.gameId));
   const games = [...data.games].sort((a, b) => b.createdAt - a.createdAt);
-  if (!games.length) return `${header('History')}<div class="narrow"><p class="empty big-empty"><span class="empty-suits">♠ ♥ ♣ ♦</span>No games yet. Your first one will show up here.</p></div>`;
+  if (!games.length) return `${header(tr('history'))}<div class="narrow"><p class="empty big-empty"><span class="empty-suits">♠ ♥ ♣ ♦</span>${tr('noGames')}</p></div>`;
 
   let lastDay = '';
   const items = games.map(g => {
@@ -562,35 +586,36 @@ function renderHistory() {
     const dayHead = day !== lastDay ? `<li class="day">${day}</li>` : '';
     lastDay = day;
     const result = st.winner !== null
-      ? `<span class="pill t${st.winner}">${TEAM[st.winner]} won</span>`
-      : g.abandoned ? `<span class="pill">Ended early</span>`
-      : `<span class="pill live">${g.id === data.activeGameId ? 'Playing now' : 'Unfinished'}</span>`;
+      ? `<span class="pill t${st.winner}">${tr('teamWon', teamName(st.winner))}</span>`
+      : g.abandoned ? `<span class="pill">${tr('endedEarly')}</span>`
+      : `<span class="pill live">${tr(g.id === data.activeGameId ? 'playingNow' : 'unfinished')}</span>`;
     const deals = g.deals.filter(d => d.type !== 'adjust').length;
     return `${dayHead}<li class="game-row" data-action="open-game" data-id="${g.id}">
       <div class="gr-teams">
         ${[0, 1].map(t => `<div class="${st.winner === t ? 'won' : ''}"><span class="mini t${t}">${rank(st.levels[t])}</span>${esc(teamNames(g.teams[t]))}</div>`).join('')}
       </div>
-      <div class="gr-meta">${result}<span class="muted">${fmtTime(g.createdAt)}, ${deals} hand${deals === 1 ? '' : 's'}</span></div>
+      <div class="gr-meta">${result}<span class="muted">${tr('rowMeta', fmtTime(g.createdAt), deals)}</span></div>
+      <button class="icon-btn gr-del" data-action="delete-game" data-id="${g.id}" aria-label="${tr('deleteGame')}">✕</button>
     </li>`;
   });
-  return `${header('History')}<div class="narrow"><ul class="list">${items.join('')}</ul></div>`;
+  return `${header(tr('history'))}<div class="narrow"><ul class="list">${items.join('')}</ul></div>`;
 }
 
 function renderGameDetail(g) {
   const st = computeState(g);
   const isActive = g.id === data.activeGameId && !g.abandoned;
-  const result = st.winner !== null ? `${TEAM[st.winner]} won` : g.abandoned ? 'Ended early' : isActive ? 'Playing now' : 'Unfinished';
+  const result = st.winner !== null ? tr('teamWon', teamName(st.winner)) : tr(g.abandoned ? 'endedEarly' : isActive ? 'playingNow' : 'unfinished');
   return `
     ${header(fmtDate(g.createdAt), { back: 'back-history' })}
     <div class="narrow">
-      <p class="muted center">${fmtTime(g.createdAt)}. ${result}</p>
+      <p class="muted center">${tr('detailMeta', fmtTime(g.createdAt), result)}</p>
       <div class="teams">${[0, 1].map(t => teamCard(g, st, t, 'md')).join('')}</div>
       <div class="actions-row">
-        ${st.winner === null && !isActive ? `<button class="btn gold" data-action="resume-game" data-id="${g.id}">Resume this game</button>` : ''}
-        ${isActive ? `<button class="btn gold" data-action="tab" data-tab="play">Back to the table</button>` : ''}
-        <button class="btn danger" data-action="delete-game" data-id="${g.id}">Delete game</button>
+        ${st.winner === null && !isActive ? `<button class="btn gold" data-action="resume-game" data-id="${g.id}">${tr('resumeGame')}</button>` : ''}
+        ${isActive ? `<button class="btn gold" data-action="tab" data-tab="play">${tr('backToTable')}</button>` : ''}
+        <button class="btn danger" data-action="delete-game" data-id="${g.id}">${tr('deleteGame')}</button>
       </div>
-      <section class="panel log"><h2>Hands</h2>${dealLog(g, st)}</section>
+      <section class="panel log"><h2>${tr('hands')}</h2>${dealLog(g, st)}</section>
     </div>`;
 }
 
@@ -604,64 +629,64 @@ function rangeStart() {
 
 function renderStats() {
   const { players, pairs } = computeStats(rangeStart());
-  const seg = `<div class="seg range">${[['all', 'All time'], ['30', '30 days'], ['today', 'Today']].map(([k, l]) => `<button class="${ui.range === k ? 'on' : ''}" data-action="range" data-r="${k}">${l}</button>`).join('')}</div>`;
+  const seg = `<div class="seg range">${['all', '30', 'today'].map(k => `<button class="${ui.range === k ? 'on' : ''}" data-action="range" data-r="${k}">${tr('ranges')[k]}</button>`).join('')}</div>`;
 
   const prow = Object.entries(players).map(([id, s]) => ({ id, ...s })).sort(byRecord);
   const pairRows = Object.values(pairs).sort(byRecord);
 
-  if (!prow.length) return `${header('Stats')}<div class="narrow">${seg}<p class="empty big-empty"><span class="empty-suits">♣ ♦</span>No games here yet. Play a few hands and the leaderboard fills itself in.</p></div>`;
+  if (!prow.length) return `${header(tr('stats'))}<div class="narrow">${seg}<p class="empty big-empty"><span class="empty-suits">♣ ♦</span>${tr('noStats')}</p></div>`;
 
   const leader = prow[0].games ? prow[0] : null;
   const bestPair = pairRows[0]?.games ? pairRows[0] : null;
 
   return `
-    ${header('Stats')}
+    ${header(tr('stats'))}
     <div class="narrow">
       ${seg}
       ${leader ? `
       <div class="podium">
         <div class="podium-card">
           <span class="crown">♛</span>
-          <span class="muted">Top player</span>
+          <span class="muted">${tr('topPlayer')}</span>
           <b>${esc(pname(leader.id))}</b>
-          <span>${pct(leader.wins, leader.games)} of ${leader.games} game${leader.games === 1 ? '' : 's'}</span>
+          <span>${tr('pctOfGames', pct(leader.wins, leader.games), leader.games)}</span>
         </div>
         ${bestPair ? `<div class="podium-card">
           <span class="crown">♥♠</span>
-          <span class="muted">Best partnership</span>
+          <span class="muted">${tr('bestPair')}</span>
           <b>${esc(teamNames(bestPair.ids))}</b>
-          <span>${pct(bestPair.wins, bestPair.games)} of ${bestPair.games} game${bestPair.games === 1 ? '' : 's'}</span>
+          <span>${tr('pctOfGames', pct(bestPair.wins, bestPair.games), bestPair.games)}</span>
         </div>` : ''}
       </div>` : ''}
       <section class="panel">
-        <h2>Players</h2>
+        <h2>${tr('players')}</h2>
         <div class="table-wrap"><table>
-          <thead><tr><th>Player</th><th>Games W-L</th><th>Win %</th><th>Hands won</th><th>Out 1st</th></tr></thead>
+          <thead><tr><th>${tr('thPlayer')}</th><th>${tr('thGames')}</th><th>${tr('thWin')}</th><th>${tr('thHands')}</th><th>${tr('thOut1')}</th></tr></thead>
           <tbody>${prow.map((s, i) => `
             <tr data-action="open-player" data-id="${s.id}">
               <td class="name">${i === 0 && leader ? '<span class="crown sm">♛</span>' : ''}${esc(pname(s.id))}</td>
               <td>${s.wins}-${s.games - s.wins}</td>
               <td><b>${pct(s.wins, s.games)}</b></td>
-              <td>${pct(s.dealWins, s.deals)} <span class="muted">of ${s.deals}</span></td>
+              <td>${pct(s.dealWins, s.deals)} <span class="muted">${tr('ofN', s.deals)}</span></td>
               <td>${s.firstOuts}</td>
             </tr>`).join('')}</tbody>
         </table></div>
       </section>
       <section class="panel">
-        <h2>Partnerships</h2>
+        <h2>${tr('partnerships')}</h2>
         <div class="table-wrap"><table>
-          <thead><tr><th>Pair</th><th>Games W-L</th><th>Win %</th><th>Hands won</th><th>1-2 wins</th></tr></thead>
+          <thead><tr><th>${tr('thPair')}</th><th>${tr('thGames')}</th><th>${tr('thWin')}</th><th>${tr('thHands')}</th><th>${tr('th12')}</th></tr></thead>
           <tbody>${pairRows.map(s => `
             <tr>
               <td class="name">${esc(teamNames(s.ids))}</td>
               <td>${s.wins}-${s.games - s.wins}</td>
               <td><b>${pct(s.wins, s.games)}</b></td>
-              <td>${pct(s.dealWins, s.deals)} <span class="muted">of ${s.deals}</span></td>
+              <td>${pct(s.dealWins, s.deals)} <span class="muted">${tr('ofN', s.deals)}</span></td>
               <td>${s.doubles}</td>
             </tr>`).join('')}</tbody>
         </table></div>
       </section>
-      <p class="hint small center">Game records count finished games. Hand records include games still in progress.</p>
+      <p class="hint small center">${tr('statsNote')}</p>
     </div>`;
 }
 
@@ -676,26 +701,26 @@ function renderPlayers() {
     return `<li class="player-row" data-action="open-player" data-id="${p.id}">
       <span class="avatar">${esc(p.name.slice(0, 1).toUpperCase())}</span>
       <span class="pr-name">${esc(p.name)}</span>
-      <span class="muted">${s?.games ? `${s.wins}-${s.games - s.wins}, ${pct(s.wins, s.games)}` : 'Ready to play'}</span>
+      <span class="muted">${s?.games ? `${s.wins}-${s.games - s.wins}, ${pct(s.wins, s.games)}` : tr('readyToPlay')}</span>
     </li>`;
   };
   return `
-    ${header('Players')}
+    ${header(tr('players'))}
     <div class="narrow">
       <form class="add-form" data-form="add-player">
-        <label class="sr" for="new-player">New player name</label>
-        <input id="new-player" name="name" placeholder="Add a player" autocomplete="off" maxlength="30" required>
-        <button class="btn gold">Add</button>
+        <label class="sr" for="new-player">${tr('newPlayerName')}</label>
+        <input id="new-player" name="name" placeholder="${tr('addPlayerPh')}" autocomplete="off" maxlength="30" required>
+        <button class="btn gold">${tr('add')}</button>
       </form>
-      ${active.length ? `<ul class="list">${active.map(row).join('')}</ul>` : `<p class="empty big-empty"><span class="empty-suits">♥ ♠</span>Your table is empty. Add the friends you play with and their stats will start stacking up.</p>`}
-      ${archived.length ? `<h3 class="sub">Hidden players</h3><ul class="list dim">${archived.map(row).join('')}</ul>` : ''}
+      ${active.length ? `<ul class="list">${active.map(row).join('')}</ul>` : `<p class="empty big-empty"><span class="empty-suits">♥ ♠</span>${tr('emptyTable')}</p>`}
+      ${archived.length ? `<h3 class="sub">${tr('hiddenPlayers')}</h3><ul class="list dim">${archived.map(row).join('')}</ul>` : ''}
 
       <section class="panel backup">
-        <h2>Backup</h2>
-        <p class="muted">Everything lives on this device. Export a backup now and then, or use one to move to a new device.</p>
+        <h2>${tr('backup')}</h2>
+        <p class="muted">${tr('backupDesc')}</p>
         <div class="actions-row">
-          <button class="btn" data-action="export">Export backup</button>
-          <button class="btn" data-action="import">Import backup</button>
+          <button class="btn" data-action="export">${tr('exportBackup')}</button>
+          <button class="btn" data-action="import">${tr('importBackup')}</button>
         </div>
       </section>
     </div>`;
@@ -718,9 +743,9 @@ function renderPlayerDetail(p) {
     <section class="panel">
       <h2>${title}</h2>
       ${rows.length ? `<div class="table-wrap"><table>
-        <thead><tr><th>Player</th><th>Games W-L</th><th>Win %</th><th>Hands won</th></tr></thead>
+        <thead><tr><th>${tr('thPlayer')}</th><th>${tr('thGames')}</th><th>${tr('thWin')}</th><th>${tr('thHands')}</th></tr></thead>
         <tbody>${rows.map(r => `<tr data-action="open-player" data-id="${r.other}">
-          <td class="name">${esc(pname(r.other))}</td><td>${r.wins}-${r.games - r.wins}</td><td><b>${pct(r.wins, r.games)}</b></td><td>${pct(r.dealWins, r.deals)} <span class="muted">of ${r.deals}</span></td>
+          <td class="name">${esc(pname(r.other))}</td><td>${r.wins}-${r.games - r.wins}</td><td><b>${pct(r.wins, r.games)}</b></td><td>${pct(r.dealWins, r.deals)} <span class="muted">${tr('ofN', r.deals)}</span></td>
         </tr>`).join('')}</tbody></table></div>` : `<p class="muted">${emptyMsg}</p>`}
     </section>`;
 
@@ -728,25 +753,25 @@ function renderPlayerDetail(p) {
     ${header(esc(p.name), { back: 'back-players' })}
     <div class="narrow">
       <div class="tiles">
-        <div class="tile"><span>Games</span><b>${s.wins}-${s.games - s.wins}</b></div>
-        <div class="tile"><span>Win rate</span><b>${pct(s.wins, s.games)}</b></div>
-        <div class="tile"><span>Hands won</span><b>${pct(s.dealWins, s.deals)}</b></div>
-        <div class="tile"><span>Out first</span><b>${s.firstOuts}</b></div>
+        <div class="tile"><span>${tr('tileGames')}</span><b>${s.wins}-${s.games - s.wins}</b></div>
+        <div class="tile"><span>${tr('tileWinRate')}</span><b>${pct(s.wins, s.games)}</b></div>
+        <div class="tile"><span>${tr('tileHands')}</span><b>${pct(s.dealWins, s.deals)}</b></div>
+        <div class="tile"><span>${tr('tileOutFirst')}</span><b>${s.firstOuts}</b></div>
       </div>
-      ${table('With each partner', partners, 'No games with a partner yet. Deal them in!')}
-      ${table('Against each opponent', opps, 'No rivals yet.')}
+      ${table(tr('withPartner'), partners, tr('noPartner'))}
+      ${table(tr('vsOpp'), opps, tr('noRivals'))}
       <section class="panel">
-        <h2>Edit</h2>
+        <h2>${tr('edit')}</h2>
         <form class="add-form" data-form="rename-player" data-id="${p.id}">
-          <label class="sr" for="rename">Name</label>
+          <label class="sr" for="rename">${tr('name')}</label>
           <input id="rename" name="name" value="${esc(p.name)}" autocomplete="off" maxlength="30" required>
-          <button class="btn">Rename</button>
+          <button class="btn">${tr('rename')}</button>
         </form>
         <div class="actions-row">
-          <button class="btn" data-action="archive-player" data-id="${p.id}">${p.archived ? 'Show in player list' : 'Hide from new games'}</button>
-          ${used ? '' : `<button class="btn danger" data-action="delete-player" data-id="${p.id}">Delete player</button>`}
+          <button class="btn" data-action="archive-player" data-id="${p.id}">${tr(p.archived ? 'showInList' : 'hideFromNew')}</button>
+          ${used ? '' : `<button class="btn danger" data-action="delete-player" data-id="${p.id}">${tr('deletePlayer')}</button>`}
         </div>
-        ${used ? `<p class="hint small">Players with games can be hidden but not deleted, so everyone’s stats stay correct.</p>` : ''}
+        ${used ? `<p class="hint small">${tr('cantDelete')}</p>` : ''}
       </section>
     </div>`;
 }
@@ -806,60 +831,60 @@ function sheetDeal() {
 
   const preview = p => {
     const o = outcomeOf(g, st, w, p);
-    if (o.kind === 'win') return '<b class="gold-ink">Wins the game!</b>';
-    if (o.kind === 'miss') return 'Doesn’t clear A';
+    if (o.kind === 'win') return `<b class="gold-ink">${tr('winsGame')}</b>`;
+    if (o.kind === 'miss') return tr('noClearA');
     return `${rank(st.levels[w])} → <b>${rank(o.to)}</b>`;
   };
 
   return `
-    <h2>${editing ? 'Fix this hand' : 'Nice hand!'}</h2>
+    <h2>${tr(editing ? 'fixHand' : 'niceHand')}</h2>
     <div class="seg big-seg">
-      ${[0, 1].map(t => `<button class="t${t} ${w === t ? 'on' : ''}" data-action="deal-winner" data-team="${t}">${SUIT[t]} ${TEAM[t]} won</button>`).join('')}
+      ${[0, 1].map(t => `<button class="t${t} ${w === t ? 'on' : ''}" data-action="deal-winner" data-team="${t}">${SUIT[t]} ${tr('teamWon', teamName(t))}</button>`).join('')}
     </div>
-    <p class="label">Who went out first? <span class="muted">Optional, for stats</span></p>
+    <p class="label">${tr('whoFirst')} <span class="muted">${tr('optional')}</span></p>
     <div class="chip-row">
       ${g.teams[w].map(id => `<button class="chip ${s.firstOut === id ? 'on' : ''}" data-action="deal-first" data-id="${id}">${esc(pname(id))}</button>`).join('')}
     </div>
-    <p class="label">Where did their partner finish?</p>
+    <p class="label">${tr('partnerFinish')}</p>
     <div class="place-btns">
       ${[2, 3, 4].map(p => `
         <button class="place t${w} ${editing && s.place === p ? 'on' : ''}" data-action="deal-place" data-place="${p}">
           <span class="pl-gain">+${BUMP[p]}</span>
-          <span class="pl-main">${PLACE_NAME[p]} <small>${PLACE_LABEL[p]}</small></span>
+          <span class="pl-main">${tr('place')[p]} <small>${PLACE_LABEL[p]}</small></span>
           <span class="pl-prev">${preview(p)}</span>
         </button>`).join('')}
     </div>
-    ${editing ? `<button class="btn danger full" data-action="delete-deal">Delete this hand</button>` : ''}
-    <button class="btn subtle full" data-action="close-sheet">Cancel</button>`;
+    ${editing ? `<button class="btn danger full" data-action="delete-deal">${tr('deleteHand')}</button>` : ''}
+    <button class="btn subtle full" data-action="close-sheet">${tr('cancel')}</button>`;
 }
 
 function sheetMenu() {
   const g = activeGame();
   const st = computeState(g);
   return `
-    <h2>Game options</h2>
+    <h2>${tr('gameOptions')}</h2>
     <div class="menu">
-      ${st.winner === null ? `<button data-action="adjust-open">Set levels by hand<small>For house rules this app doesn’t cover</small></button>` : ''}
-      <button data-action="open-game" data-id="${g.id}">See this game in history</button>
-      ${st.winner === null ? `<button class="danger" data-action="abandon-game">End without a winner<small>It stays in history and you can resume it later</small></button>` : ''}
-      <button data-action="new-game">Start a new game</button>
+      ${st.winner === null ? `<button data-action="adjust-open">${tr('setLevels')}<small>${tr('setLevelsSub')}</small></button>` : ''}
+      <button data-action="open-game" data-id="${g.id}">${tr('seeInHistory')}</button>
+      ${st.winner === null ? `<button class="danger" data-action="abandon-game">${tr('endNoWinner')}<small>${tr('endNoWinnerSub')}</small></button>` : ''}
+      <button data-action="new-game">${tr('startNew')}</button>
     </div>
-    <p class="muted small">House rules: ${g.rules.aPassWith14 ? 'any win clears A' : 'A needs a 1-2 or 1-3 win'}, ${g.rules.aMaxFails ? `back to 2 after ${g.rules.aMaxFails} missed tries` : 'unlimited tries on A'}.</p>
-    <button class="btn subtle full" data-action="close-sheet">Close</button>`;
+    <p class="muted small">${tr('rulesLine', g.rules.aPassWith14, g.rules.aMaxFails)}</p>
+    <button class="btn subtle full" data-action="close-sheet">${tr('close')}</button>`;
 }
 
 function sheetAdjust() {
   const s = ui.sheet;
   return `
-    <h2>${s.dealId ? 'Edit level change' : 'Set levels by hand'}</h2>
+    <h2>${tr(s.dealId ? 'editLevelChange' : 'setLevels')}</h2>
     ${[0, 1].map(t => `
-      <p class="label"><span class="suit t${t}">${SUIT[t]}</span>${TEAM[t]} level</p>
+      <p class="label"><span class="suit t${t}">${SUIT[t]}</span>${tr('teamLevel', teamName(t))}</p>
       <div class="rank-grid">${RANKS.map((r, i) => `<button class="t${t} ${s.levels[t] === i ? 'on' : ''}" data-action="adjust-level" data-team="${t}" data-lv="${i}">${r}</button>`).join('')}</div>`).join('')}
-    <p class="label">Whose level is up next?</p>
-    <div class="seg">${[0, 1].map(t => `<button class="${s.declarer === t ? 'on' : ''}" data-action="adjust-decl" data-team="${t}">${TEAM[t]}</button>`).join('')}</div>
-    <button class="btn ink full" data-action="adjust-save">Save</button>
-    ${s.dealId ? `<button class="btn danger full" data-action="delete-deal">Remove this change</button>` : ''}
-    <button class="btn subtle full" data-action="close-sheet">Cancel</button>`;
+    <p class="label">${tr('whoseNext')}</p>
+    <div class="seg">${[0, 1].map(t => `<button class="${s.declarer === t ? 'on' : ''}" data-action="adjust-decl" data-team="${t}">${teamName(t)}</button>`).join('')}</div>
+    <button class="btn ink full" data-action="adjust-save">${tr('save')}</button>
+    ${s.dealId ? `<button class="btn danger full" data-action="delete-deal">${tr('removeChange')}</button>` : ''}
+    <button class="btn subtle full" data-action="close-sheet">${tr('cancel')}</button>`;
 }
 
 function sheetPick() {
@@ -868,15 +893,15 @@ function sheetPick() {
   const taken = new Set(d.teams.flat().filter(Boolean));
   const avail = data.players.filter(p => !p.archived && !taken.has(p.id)).sort((a, b) => a.name.localeCompare(b.name));
   return `
-    <h2><span class="suit t${s.team}">${SUIT[s.team]}</span>${TEAM[s.team]} team, seat ${s.seat + 1}</h2>
+    <h2><span class="suit t${s.team}">${SUIT[s.team]}</span>${tr('seat', tr('teamFull')[s.team], s.seat + 1)}</h2>
     <form class="add-form" data-form="add-pick">
-      <label class="sr" for="pick-new">New player name</label>
-      <input id="pick-new" name="name" placeholder="Someone new? Type their name" autocomplete="off" maxlength="30" required>
-      <button class="btn ink">Add</button>
+      <label class="sr" for="pick-new">${tr('newPlayerName')}</label>
+      <input id="pick-new" name="name" placeholder="${tr('pickNewPh')}" autocomplete="off" maxlength="30" required>
+      <button class="btn ink">${tr('add')}</button>
     </form>
     ${avail.length ? `<div class="pick-list">${avail.map(p => `<button data-action="pick-player" data-id="${p.id}"><span class="avatar">${esc(p.name.slice(0, 1).toUpperCase())}</span>${esc(p.name)}</button>`).join('')}</div>`
-      : `<p class="muted">${data.players.length ? 'Everyone else is already seated.' : 'No players yet. Add the first one above!'}</p>`}
-    <button class="btn subtle full" data-action="close-sheet">Cancel</button>`;
+      : `<p class="muted">${tr(data.players.length ? 'allSeated' : 'noPlayersYet')}</p>`}
+    <button class="btn subtle full" data-action="close-sheet">${tr('cancel')}</button>`;
 }
 
 function sheetConfirm() {
@@ -885,14 +910,14 @@ function sheetConfirm() {
     <h2>${s.title}</h2>
     <p>${s.body}</p>
     <button class="btn danger-solid full" data-action="confirm-run">${s.label}</button>
-    <button class="btn subtle full" data-action="close-sheet">Cancel</button>`;
+    <button class="btn subtle full" data-action="close-sheet">${tr('cancel')}</button>`;
 }
 
 // ---------- feedback: toast, card flips, confetti ----------
 let toastTimer = null;
 function toast(msg, withUndo = false) {
   const el = document.getElementById('toast');
-  el.innerHTML = `<span>${esc(msg)}</span>${withUndo ? '<button data-action="undo">Undo</button>' : ''}`;
+  el.innerHTML = `<span>${esc(msg)}</span>${withUndo ? `<button data-action="undo">${tr('undo')}</button>` : ''}`;
   el.classList.remove('show');
   void el.offsetWidth; // restart the transition so repeated toasts still pop
   el.classList.add('show');
@@ -987,12 +1012,12 @@ function addPlayer(name) {
   if (!name) return null;
   const existing = data.players.find(p => p.name.toLowerCase() === name.toLowerCase());
   if (existing) {
-    if (existing.archived) mutate(`${existing.name} is back!`, () => { existing.archived = false; });
-    else { toast(`${existing.name} is already at the table`); sound.play('nope'); }
+    if (existing.archived) mutate(tr('isBack', existing.name), () => { existing.archived = false; });
+    else { toast(tr('alreadyAtTable', existing.name)); sound.play('nope'); }
     return existing.id;
   }
   const p = { id: uid(), name, createdAt: Date.now(), archived: false };
-  mutate(`Welcome, ${name}!`, () => data.players.push(p));
+  mutate(tr('welcome', name), () => data.players.push(p));
   sound.play('pop');
   return p.id;
 }
@@ -1013,7 +1038,7 @@ const ACTION_SOUND = {
   undo: 'undo', 'undo-deal': 'undo',
   'delete-deal': 'del', 'confirm-run': 'del', 'clear-slot': 'del',
   'shuffle-teams': 'flip', 'swap-teams': 'flip', 'pick-player': 'pop',
-  'toggle-sound': null,
+  'toggle-sound': null, 'toggle-lang': 'flip',
 };
 
 const actions = {
@@ -1027,6 +1052,12 @@ const actions = {
   undo,
   'close-sheet': closeSheet,
   'toggle-sound'() { sound.toggle(); render(); },
+  'toggle-lang'() {
+    lang = lang === 'zh' ? 'en' : 'zh';
+    try { localStorage.setItem(LANG_KEY, lang); } catch (e) { /* ignore */ }
+    applyLang();
+    render();
+  },
 
   // play
   record({ team }) {
@@ -1046,13 +1077,14 @@ const actions = {
     const fields = { winner: s.winner, place: +place, firstOut: s.firstOut };
     ui.sheet = null;
     if (s.dealId) {
-      mutate('Hand updated', () => Object.assign(g.deals.find(d => d.id === s.dealId), fields));
+      mutate(tr('handUpdated'), () => Object.assign(g.deals.find(d => d.id === s.dealId), fields));
       return;
     }
     const o = outcomeOf(g, computeState(g), fields.winner, fields.place);
-    const label = o.kind === 'win' ? `${TEAM[fields.winner]} takes the game!`
-      : o.kind === 'miss' ? `${TEAM[fields.winner]} won, but A needs a 1-2 or 1-3`
-      : `${TEAM[fields.winner]} climbs to ${rank(o.to)}!`;
+    const tm = teamName(fields.winner);
+    const label = o.kind === 'win' ? tr('takesGame', tm)
+      : o.kind === 'miss' ? tr('wonButA', tm)
+      : tr('climbs', tm, rank(o.to));
     mutate(label, () => g.deals.push({ id: uid(), at: Date.now(), ...fields }));
   },
   'edit-deal'({ game, id }) {
@@ -1065,12 +1097,12 @@ const actions = {
     const s = ui.sheet;
     const g = findGame(s.gameId);
     ui.sheet = null;
-    mutate('Hand deleted', () => { g.deals = g.deals.filter(d => d.id !== s.dealId); });
+    mutate(tr('handDeleted'), () => { g.deals = g.deals.filter(d => d.id !== s.dealId); });
   },
   'undo-deal'() {
     const g = activeGame();
     if (!g?.deals.length) return;
-    mutate('Took back the last hand', () => g.deals.pop());
+    mutate(tr('tookBack'), () => g.deals.pop());
   },
   'game-menu'() { openSheet({ type: 'menu' }); },
   'adjust-open'() {
@@ -1085,13 +1117,13 @@ const actions = {
     const g = findGame(s.gameId);
     const fields = { type: 'adjust', levels: s.levels.slice(), declarer: s.declarer };
     ui.sheet = null;
-    if (s.dealId) mutate('Level change updated', () => Object.assign(g.deals.find(d => d.id === s.dealId), fields));
-    else mutate('Levels set', () => g.deals.push({ id: uid(), at: Date.now(), ...fields }));
+    if (s.dealId) mutate(tr('levelChangeUpdated'), () => Object.assign(g.deals.find(d => d.id === s.dealId), fields));
+    else mutate(tr('levelsSet'), () => g.deals.push({ id: uid(), at: Date.now(), ...fields }));
   },
   'abandon-game'() {
     const g = activeGame();
     ui.sheet = null;
-    mutate('Game saved to history', () => { g.abandoned = true; data.activeGameId = null; });
+    mutate(tr('savedToHistory'), () => { g.abandoned = true; data.activeGameId = null; });
   },
   'new-game'() {
     ui.sheet = null;
@@ -1164,7 +1196,7 @@ const actions = {
       abandoned: false,
     };
     ui.draft = null;
-    mutate('Cards are dealt. Good luck!', () => { data.games.push(g); data.activeGameId = g.id; });
+    mutate(tr('dealt'), () => { data.games.push(g); data.activeGameId = g.id; });
     switchView();
   },
 
@@ -1181,18 +1213,18 @@ const actions = {
     const g = findGame(id);
     ui.tab = 'play';
     ui.gameId = null;
-    mutate('Back to the table!', () => { g.abandoned = false; data.activeGameId = id; });
+    mutate(tr('backAtTable'), () => { g.abandoned = false; data.activeGameId = id; });
     switchView();
   },
   'delete-game'({ id }) {
     openSheet({
       type: 'confirm',
-      title: 'Delete this game?',
-      body: 'It comes out of history and stats. You can undo right after if you change your mind.',
-      label: 'Delete game',
+      title: tr('deleteGameTitle'),
+      body: tr('deleteGameBody'),
+      label: tr('deleteGame'),
       run: () => {
         ui.gameId = null;
-        mutate('Game deleted', () => {
+        mutate(tr('gameDeleted'), () => {
           data.games = data.games.filter(g => g.id !== id);
           if (data.activeGameId === id) data.activeGameId = null;
         });
@@ -1216,19 +1248,19 @@ const actions = {
   'back-players'() { ui.playerId = null; render(); switchView(); },
   'archive-player'({ id }) {
     const p = findPlayer(id);
-    mutate(p.archived ? `${p.name} is back!` : `${p.name} is hidden`, () => { p.archived = !p.archived; });
+    mutate(tr(p.archived ? 'isBack' : 'isHidden', p.name), () => { p.archived = !p.archived; });
   },
   'delete-player'({ id }) {
     const p = findPlayer(id);
     ui.playerId = null;
-    mutate(`Deleted ${p.name}`, () => { data.players = data.players.filter(x => x.id !== id); });
+    mutate(tr('deletedPlayer', p.name), () => { data.players = data.players.filter(x => x.id !== id); });
   },
   async export() {
     const json = JSON.stringify(data, null, 2);
     const name = `guandan-backup-${new Date().toISOString().slice(0, 10)}.json`;
     const file = new File([json], name, { type: 'application/json' });
     if (navigator.canShare?.({ files: [file] })) {
-      try { await navigator.share({ files: [file], title: 'Guandan backup' }); return; }
+      try { await navigator.share({ files: [file], title: tr('backupShareTitle') }); return; }
       catch (e) { if (e.name === 'AbortError') return; }
     }
     const a = document.createElement('a');
@@ -1256,9 +1288,9 @@ const forms = {
     if (!name || name === p.name) return;
     if (data.players.some(x => x !== p && x.name.toLowerCase() === name.toLowerCase())) {
       sound.play('nope');
-      return toast(`${name} is already at the table`);
+      return toast(tr('alreadyAtTable', name));
     }
-    mutate(`Now playing as ${name}`, () => { p.name = name; });
+    mutate(tr('nowPlayingAs', name), () => { p.name = name; });
   },
 };
 
@@ -1296,13 +1328,13 @@ document.getElementById('import-file').addEventListener('change', async e => {
   if (!file) return;
   let parsed;
   try { parsed = JSON.parse(await file.text()); } catch { parsed = null; }
-  if (!validData(parsed)) { sound.play('nope'); return toast('That file isn’t a Guandan Counter backup'); }
+  if (!validData(parsed)) { sound.play('nope'); return toast(tr('notBackup')); }
   openSheet({
     type: 'confirm',
-    title: 'Replace everything?',
-    body: `This backup has ${parsed.players.length} players and ${parsed.games.length} games. It replaces all data on this device.`,
-    label: 'Import backup',
-    run: () => mutate('Backup imported', () => { data = parsed; }),
+    title: tr('replaceAll'),
+    body: tr('backupBody', parsed.players.length, parsed.games.length),
+    label: tr('importBackup'),
+    run: () => mutate(tr('backupImported'), () => { data = parsed; }),
   });
 });
 
@@ -1311,6 +1343,7 @@ document.addEventListener('keydown', e => {
 });
 
 // ---------- boot ----------
+applyLang();
 render();
 navigator.storage?.persist?.().catch(() => {});
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {

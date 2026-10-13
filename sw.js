@@ -1,10 +1,11 @@
 // Offline support: serve from cache, refresh the cache in the background.
 // Bump CACHE when you deploy so old files get cleaned up.
-const CACHE = 'guandan-v1';
+const CACHE = 'guandan-v2';
 const ASSETS = [
   './',
   './index.html',
   './styles.css',
+  './i18n.js',
   './app.js',
   './manifest.webmanifest',
   './icons/icon-180.png',

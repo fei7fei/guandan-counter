@@ -1,6 +1,6 @@
 // Offline support: serve from cache, refresh the cache in the background.
 // Bump CACHE when you deploy so old files get cleaned up.
-const CACHE = 'guandan-v9';
+const CACHE = 'guandan-v10';
 const ASSETS = [
   './',
   './index.html',
@@ -14,6 +14,7 @@ const ASSETS = [
   './icons/icon-180.png',
   './icons/icon-192.png',
   './icons/icon-512.png',
+  './icons/chick.png',
 ];
 
 self.addEventListener('install', e => {

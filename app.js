@@ -1576,8 +1576,9 @@ document.addEventListener('keydown', e => {
 });
 
 // ---------- opening animation ----------
-// Chick pops in, two decks' worth of aces fan out behind it, the name rises (in both
-// languages), then it all fades into the app. A tap anywhere skips straight in.
+// The chick waddles in from the side, stops with a hop, two decks' worth of aces fan out
+// behind it, the name rises (in both languages), then it all fades into the app.
+// A tap anywhere skips straight in.
 function runSplash() {
   const el = document.getElementById('splash');
   if (!el) return;
@@ -1586,7 +1587,7 @@ function runSplash() {
   el.innerHTML = `
     <div class="splash-stage">
       ${FAN.map(([, t]) => playingCard(ACE, t)).join('')}
-      <div class="splash-chick"><img src="icons/icon-512.png" alt=""></div>
+      <div class="splash-chick"><img src="icons/chick.png" alt=""></div>
     </div>
     <h1 class="splash-title">${tr('appName')}</h1>
     <p class="splash-alt">${STRINGS[other].appName}</p>
@@ -1594,6 +1595,7 @@ function runSplash() {
     <div class="splash-suits">${['♠', '♥', '♣', '♦'].map(x => `<span>${x}</span>`).join('')}</div>`;
   const cards = [...el.querySelectorAll('.pcard-wrap')];
   const chick = el.querySelector('.splash-chick');
+  const body = chick.querySelector('img');
   const texts = [...el.querySelectorAll('.splash-title, .splash-alt, .splash-tag, .splash-suits')];
   const rest = 'translate(-50%, -50%)';
   const fanned = a => `${rest} rotate(${a}deg) translateY(-34px)`;
@@ -1602,9 +1604,12 @@ function runSplash() {
   cards.forEach((c, i) => { c.style.transform = fanned(FAN[i][0]); });
 
   let done = false;
+  const timers = [];
+  const later = (fn, ms) => timers.push(setTimeout(fn, ms));
   const exit = () => {
     if (done) return;
     done = true;
+    timers.forEach(clearTimeout);
     el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: reducedMotion() ? 300 : 450, easing: 'ease-in', fill: 'forwards' })
       .onfinish = () => el.remove();
     if (!reducedMotion()) el.querySelector('.splash-stage').animate([{ transform: 'none' }, { transform: 'scale(1.08)' }], { duration: 450, fill: 'forwards' });
@@ -1617,57 +1622,97 @@ function runSplash() {
     { duration: extra.duration ?? 520, delay, easing: pop, fill: 'both' },
   );
 
+  // a little cloud of dust left behind at the chick's feet
+  const puff = () => {
+    const r = chick.getBoundingClientRect();
+    const d = document.createElement('span');
+    d.className = 'splash-puff';
+    d.style.left = r.left + r.width * 0.28 + 'px';
+    d.style.top = r.bottom - 14 + 'px';
+    el.appendChild(d);
+    d.animate(
+      [{ opacity: 0.8, transform: 'translate(-50%, -50%) scale(.4)' }, { opacity: 0, transform: 'translate(calc(-50% - 26px), calc(-50% - 10px)) scale(1.6)' }],
+      { duration: 650, easing: 'ease-out', fill: 'forwards' },
+    ).onfinish = () => d.remove();
+  };
+
   const play = () => {
     if (done) return;
     if (reducedMotion()) {
       // Reduce Motion: still a real animation, but small and soft: pieces glide a short way
-      // into place, with no bouncing, spinning or zooming
+      // into place, with no waddling, bouncing, spinning or zooming
       const glide = { from: { transform: 'translateY(14px) scale(.96)' }, to: { transform: 'none' } };
-      fadeIn(chick, 0, { duration: 700, ...glide });
-      cards.forEach((c, i) => fadeIn(c, 350 + i * 140, {
+      fadeIn(chick, 0, { duration: 800, from: { transform: 'translateX(-40px)' }, to: { transform: 'none' } });
+      cards.forEach((c, i) => fadeIn(c, 500 + i * 140, {
         duration: 700,
         from: { transform: `${rest} rotate(${FAN[i][0] * 0.6}deg) translateY(-24px)` },
         to: { transform: fanned(FAN[i][0]) },
       }));
-      texts.forEach((t, i) => fadeIn(t, 1000 + i * 180, { duration: 650, ...glide }));
-      setTimeout(exit, 4400);
+      texts.forEach((t, i) => fadeIn(t, 1150 + i * 180, { duration: 650, ...glide }));
+      later(exit, 4600);
       return;
     }
+
+    // 1. waddle in from off-screen left: the whole chick slides across while its body
+    //    rocks side to side and bobs, one step every 220ms
+    const WALK = 1760, STEP = 220;
+    const from = -(window.innerWidth / 2 + 140);
     chick.animate(
-      [
-        { opacity: 0, transform: 'scale(0) rotate(-14deg)', easing: pop },
-        { opacity: 1, transform: 'scale(1.12) rotate(4deg)', offset: 0.6, easing: 'ease-in-out' },
-        { opacity: 1, transform: 'none' },
-      ],
-      { duration: 700, delay: 80, fill: 'both' },
+      [{ opacity: 1, transform: `translateX(${from}px)` }, { opacity: 1, transform: 'translateX(0)' }],
+      { duration: WALK, easing: 'cubic-bezier(.3, .1, .5, 1)', fill: 'both' },
     );
-    cards.forEach((c, i) => fadeIn(c, 380 + i * 90, {
+    body.animate(
+      [
+        { transform: 'rotate(-8deg) translateY(0)' },
+        { transform: 'rotate(0deg) translateY(-12px)', offset: 0.25 },
+        { transform: 'rotate(8deg) translateY(0)', offset: 0.5 },
+        { transform: 'rotate(0deg) translateY(-12px)', offset: 0.75 },
+        { transform: 'rotate(-8deg) translateY(0)' },
+      ],
+      { duration: STEP * 2, iterations: WALK / (STEP * 2) },
+    );
+    for (let t = STEP; t < WALK; t += STEP) later(puff, t);
+
+    // 2. stop with a happy hop and settle
+    body.animate(
+      [
+        { transform: 'none' },
+        { transform: 'translateY(4px) scaleY(.92) scaleX(1.05)', offset: 0.2 },
+        { transform: 'translateY(-26px) scaleY(1.04)', offset: 0.5 },
+        { transform: 'translateY(2px) scaleY(.96)', offset: 0.8 },
+        { transform: 'none' },
+      ],
+      { duration: 620, delay: WALK + 60, easing: 'ease-in-out' },
+    );
+
+    // 3. the aces fan out behind it, then the names rise
+    const T = WALK + 380;
+    cards.forEach((c, i) => fadeIn(c, T + i * 90, {
       duration: 620,
       from: { transform: `${rest} rotate(0deg) translateY(20px) scale(.6)` },
       to: { transform: fanned(FAN[i][0]) },
     }));
-    texts.forEach((t, i) => fadeIn(t, 820 + i * 130, { from: { transform: 'translateY(16px)' }, to: { transform: 'none' } }));
+    texts.forEach((t, i) => fadeIn(t, T + 420 + i * 130, { from: { transform: 'translateY(16px)' }, to: { transform: 'none' } }));
 
-    // second beat: the aces wave, the chick hops, the suits light up one by one
+    // 4. a last flourish: the aces wave, the chick wiggles, the suits light up one by one
     cards.forEach((c, i) => c.animate(
       [{ transform: fanned(FAN[i][0]) }, { transform: `${fanned(FAN[i][0])} translateY(-16px)`, offset: 0.45 }, { transform: fanned(FAN[i][0]) }],
-      { duration: 560, delay: 1900 + i * 110, easing: 'ease-in-out', composite: 'replace' },
+      { duration: 560, delay: T + 1350 + i * 110, easing: 'ease-in-out' },
     ));
-    chick.animate(
-      [{ transform: 'none' }, { transform: 'translateY(-16px) scale(1.04)', offset: 0.3 }, { transform: 'none', offset: 0.55 }, { transform: 'translateY(-8px)', offset: 0.75 }, { transform: 'none' }],
-      { duration: 900, delay: 2500, easing: 'ease-in-out' },
+    body.animate(
+      [{ transform: 'none' }, { transform: 'rotate(-7deg)', offset: 0.25 }, { transform: 'rotate(7deg)', offset: 0.6 }, { transform: 'none' }],
+      { duration: 700, delay: T + 1700, easing: 'ease-in-out' },
     );
     el.querySelectorAll('.splash-suits span').forEach((x, i) => x.animate(
       [{ transform: 'none', filter: 'none' }, { transform: 'scale(1.45)', filter: 'drop-shadow(0 0 8px rgba(242, 196, 92, .9))', offset: 0.4 }, { transform: 'none', filter: 'none' }],
-      { duration: 480, delay: 2300 + i * 160, easing: 'ease-out' },
+      { duration: 480, delay: T + 1500 + i * 160, easing: 'ease-out' },
     ));
-    setTimeout(exit, 4800);
+    later(exit, T + 3000);
   };
 
   // Start once the chick image is ready and the screen has really painted. On an iPhone
   // Home Screen launch, script can run while the system launch screen is still up.
-  const img = chick.querySelector('img');
-  const ready = img.decode ? img.decode().catch(() => {}) : Promise.resolve();
+  const ready = body.decode ? body.decode().catch(() => {}) : Promise.resolve();
   Promise.race([ready, new Promise(r => setTimeout(r, 900))])
     .then(() => requestAnimationFrame(() => requestAnimationFrame(play)));
 }

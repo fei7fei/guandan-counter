@@ -1644,19 +1644,19 @@ function runSplash() {
       // into place, with no waddling, bouncing, spinning or zooming
       const glide = { from: { transform: 'translateY(14px) scale(.96)' }, to: { transform: 'none' } };
       fadeIn(chick, 0, { duration: 800, from: { transform: 'translateX(-40px)' }, to: { transform: 'none' } });
-      cards.forEach((c, i) => fadeIn(c, 500 + i * 140, {
+      cards.forEach((c, i) => fadeIn(c, 400 + i * 110, {
         duration: 700,
         from: { transform: `${rest} rotate(${FAN[i][0] * 0.6}deg) translateY(-24px)` },
         to: { transform: fanned(FAN[i][0]) },
       }));
-      texts.forEach((t, i) => fadeIn(t, 1150 + i * 180, { duration: 650, ...glide }));
-      later(exit, 4600);
+      texts.forEach((t, i) => fadeIn(t, 900 + i * 140, { duration: 600, ...glide }));
+      later(exit, 3500);
       return;
     }
 
     // 1. waddle in from off-screen left: the whole chick slides across while its body
-    //    rocks side to side and bobs, one step every 220ms
-    const WALK = 1760, STEP = 220;
+    //    rocks side to side and bobs, one step every 217ms
+    const WALK = 1300, STEP = 217;
     const from = -(window.innerWidth / 2 + 140);
     chick.animate(
       [{ opacity: 1, transform: `translateX(${from}px)` }, { opacity: 1, transform: 'translateX(0)' }],
@@ -1683,32 +1683,32 @@ function runSplash() {
         { transform: 'translateY(2px) scaleY(.96)', offset: 0.8 },
         { transform: 'none' },
       ],
-      { duration: 620, delay: WALK + 60, easing: 'ease-in-out' },
+      { duration: 520, delay: WALK + 40, easing: 'ease-in-out' },
     );
 
     // 3. the aces fan out behind it, then the names rise
-    const T = WALK + 380;
-    cards.forEach((c, i) => fadeIn(c, T + i * 90, {
-      duration: 620,
+    const T = WALK + 240;
+    cards.forEach((c, i) => fadeIn(c, T + i * 80, {
+      duration: 560,
       from: { transform: `${rest} rotate(0deg) translateY(20px) scale(.6)` },
       to: { transform: fanned(FAN[i][0]) },
     }));
-    texts.forEach((t, i) => fadeIn(t, T + 420 + i * 130, { from: { transform: 'translateY(16px)' }, to: { transform: 'none' } }));
+    texts.forEach((t, i) => fadeIn(t, T + 300 + i * 100, { from: { transform: 'translateY(16px)' }, to: { transform: 'none' } }));
 
     // 4. a last flourish: the aces wave, the chick wiggles, the suits light up one by one
     cards.forEach((c, i) => c.animate(
       [{ transform: fanned(FAN[i][0]) }, { transform: `${fanned(FAN[i][0])} translateY(-16px)`, offset: 0.45 }, { transform: fanned(FAN[i][0]) }],
-      { duration: 560, delay: T + 1350 + i * 110, easing: 'ease-in-out' },
+      { duration: 480, delay: T + 820 + i * 90, easing: 'ease-in-out' },
     ));
     body.animate(
       [{ transform: 'none' }, { transform: 'rotate(-7deg)', offset: 0.25 }, { transform: 'rotate(7deg)', offset: 0.6 }, { transform: 'none' }],
-      { duration: 700, delay: T + 1700, easing: 'ease-in-out' },
+      { duration: 600, delay: T + 1100, easing: 'ease-in-out' },
     );
     el.querySelectorAll('.splash-suits span').forEach((x, i) => x.animate(
       [{ transform: 'none', filter: 'none' }, { transform: 'scale(1.45)', filter: 'drop-shadow(0 0 8px rgba(242, 196, 92, .9))', offset: 0.4 }, { transform: 'none', filter: 'none' }],
-      { duration: 480, delay: T + 1500 + i * 160, easing: 'ease-out' },
+      { duration: 420, delay: T + 950 + i * 110, easing: 'ease-out' },
     ));
-    later(exit, T + 3000);
+    later(exit, T + 1810);   // fade-out ends at 3.8s
   };
 
   // Start once the chick image is ready and the screen has really painted. On an iPhone

@@ -610,14 +610,19 @@ function renderNewGame() {
     </div>`;
   ui.fanDealt = true;
 
+  const startBtn = `<button class="btn gold big full" data-action="start-game" ${ready && (!unequal || d.start.declarer !== null) ? '' : 'disabled'}>${tr('letsPlay')}</button>`;
+
+  // A quick game needs no setup, so its start button comes first and the names and rules
+  // below are optional. A tracked game needs players first, so its button follows the teams.
   return `
     ${header(tr('newGame'))}
     <div class="narrow">
       <div class="hero">
         ${fan}
         <h2 class="hero-title">${tr('heroTitle')}</h2>
-        <p class="muted">${tr('heroSub')}</p>
+        ${d.guest ? '' : `<p class="muted">${tr('heroSub')}</p>`}
       </div>
+      ${d.guest ? `<div class="quick-start">${startBtn}</div>` : ''}
       <div class="seg">
         <button class="${d.guest ? 'on' : ''}" data-action="draft-mode" data-guest="1">${tr('modeGuest')}</button>
         <button class="${d.guest ? '' : 'on'}" data-action="draft-mode" data-guest="0">${tr('modeSaved')}</button>
@@ -635,10 +640,9 @@ function renderNewGame() {
         ${d.guest || picked.filter(Boolean).length === 4 ? `<button class="chip" data-action="shuffle-teams">${tr('shuffle')}</button><button class="chip" data-action="swap-teams">${tr('swap')}</button>` : ''}
       </div>
 
-      ${!ready && !d.guest ? `<p class="hint center">${tr('pickFour')}</p>` : ''}
-      <div class="start-bar">
-        <button class="btn gold big full" data-action="start-game" ${ready && (!unequal || d.start.declarer !== null) ? '' : 'disabled'}>${tr('letsPlay')}</button>
-      </div>
+      ${d.guest ? '' : `
+      ${!ready ? `<p class="hint center">${tr('pickFour')}</p>` : ''}
+      <div class="start-bar">${startBtn}</div>`}
 
       <div class="panel rules">
         <h2>${tr('houseRules')}</h2>

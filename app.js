@@ -1620,11 +1620,17 @@ function runSplash() {
   const play = () => {
     if (done) return;
     if (reducedMotion()) {
-      // Reduce Motion: no zooming or swinging, just a gentle fade-in, piece by piece
-      fadeIn(chick, 0, { duration: 500 });
-      cards.forEach((c, i) => fadeIn(c, 250 + i * 120, { duration: 450 }));
-      texts.forEach((t, i) => fadeIn(t, 800 + i * 150, { duration: 450 }));
-      setTimeout(exit, 4200);
+      // Reduce Motion: still a real animation, but small and soft: pieces glide a short way
+      // into place, with no bouncing, spinning or zooming
+      const glide = { from: { transform: 'translateY(14px) scale(.96)' }, to: { transform: 'none' } };
+      fadeIn(chick, 0, { duration: 700, ...glide });
+      cards.forEach((c, i) => fadeIn(c, 350 + i * 140, {
+        duration: 700,
+        from: { transform: `${rest} rotate(${FAN[i][0] * 0.6}deg) translateY(-24px)` },
+        to: { transform: fanned(FAN[i][0]) },
+      }));
+      texts.forEach((t, i) => fadeIn(t, 1000 + i * 180, { duration: 650, ...glide }));
+      setTimeout(exit, 4400);
       return;
     }
     chick.animate(

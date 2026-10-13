@@ -418,6 +418,16 @@ h2 { font-size: 20px; font-weight: 700; margin-bottom: 10px; }
 .mini.t1 { color: var(--card-blue); }
 
 /* ---------- new game ---------- */
+/* "Let's play" sits under the teams and sticks just above the tab bar,
+   so it never needs a scroll to reach */
+.start-bar {
+  position: sticky; z-index: 5;
+  bottom: calc(var(--tabbar) + var(--tab-gap) + env(safe-area-inset-bottom) + 10px);
+}
+.start-bar .btn { box-shadow: 0 8px 24px rgba(0, 0, 0, .18); }
+/* a see-through disabled button would let the rules show through while it floats */
+.start-bar .btn:disabled { opacity: 1; background: var(--surface); color: var(--label-2); }
+
 .hero { text-align: center; padding: 4px 0 0; }
 .hero p { margin: 6px auto 0; max-width: 40ch; color: var(--label-2); }
 .hero-title { font-size: 28px; font-weight: 700; margin: 18px 0 0; }

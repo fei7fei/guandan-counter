@@ -635,6 +635,11 @@ function renderNewGame() {
         ${d.guest || picked.filter(Boolean).length === 4 ? `<button class="chip" data-action="shuffle-teams">${tr('shuffle')}</button><button class="chip" data-action="swap-teams">${tr('swap')}</button>` : ''}
       </div>
 
+      ${!ready && !d.guest ? `<p class="hint center">${tr('pickFour')}</p>` : ''}
+      <div class="start-bar">
+        <button class="btn gold big full" data-action="start-game" ${ready && (!unequal || d.start.declarer !== null) ? '' : 'disabled'}>${tr('letsPlay')}</button>
+      </div>
+
       <div class="panel rules">
         <h2>${tr('houseRules')}</h2>
         <div class="rule">
@@ -664,9 +669,6 @@ function renderNewGame() {
             </div>
           </div>` : ''}` : ''}
       </div>
-
-      <button class="btn gold big full" data-action="start-game" ${ready && (!unequal || d.start.declarer !== null) ? '' : 'disabled'}>${tr('letsPlay')}</button>
-      ${!ready && !d.guest ? `<p class="hint center">${tr('pickFour')}</p>` : ''}
     </div>`;
 }
 

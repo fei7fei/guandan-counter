@@ -81,21 +81,21 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #000000;
-    --surface: #1c1c1e;
-    --cell: #2c2c2e;
-    --sheet-bg: #1c1c1e;
+    --bg: #17181c;                     /* soft charcoal rather than pure black */
+    --surface: #232428;
+    --cell: #2e3035;
+    --sheet-bg: #232428;
     --label: #ffffff;
-    --label-2: #aeaeb2;                /* 7.7:1 on #1c1c1e, 9.5:1 on black */
+    --label-2: #aeaeb2;                /* 8.0:1 on the background, 6.0:1 on sheet rows */
     --sep: rgba(84, 84, 88, .6);
     --fill: rgba(118, 118, 128, .24);
     --fill-2: rgba(118, 118, 128, .36);
-    --seg-on: #636366;
-    --accent: #3dd68c;                 /* 9.1:1 on #1c1c1e */
+    --seg-on: #55575e;
+    --accent: #3dd68c;                 /* 8.3:1 on cards */
     --on-accent: #00281a;
     --accent-tint: rgba(61, 214, 140, .16);
-    --red-text: #ff7a70;               /* 6.7:1 on #1c1c1e */
-    --blue-text: #7fa6ff;              /* 7.1:1 on #1c1c1e */
+    --red-text: #ff7a70;               /* 6.1:1 on cards */
+    --blue-text: #7fa6ff;              /* 6.5:1 on cards */
     --red-tint: rgba(255, 122, 112, .16);
     --blue-tint: rgba(127, 166, 255, .16);
     --gold-text: #f2c45c;
@@ -747,12 +747,12 @@ tr[data-action]:active td { background: var(--fill); }
   #toast { transition: opacity 200ms ease; }
 }
 
-/* ---------- opening animation: a lighter midnight blue ----------
-   Title text is 8.3:1 and the tagline 5.5:1 against the middle blue they sit on. */
+/* ---------- opening animation: a soft, muted navy ----------
+   Title text is 11.8:1 and the tagline 7.4:1 against the middle blue they sit on. */
 #splash {
-  --splash-hi: #3a5a8c;
-  --splash: #2a4675;
-  --splash-lo: #1b2f52;
+  --splash-hi: #2b3f5f;
+  --splash: #1f2f4a;
+  --splash-lo: #151f33;
   position: fixed; inset: 0; z-index: 60;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
   padding: 24px; text-align: center;

@@ -13,7 +13,7 @@ Shuffle up and have fun! 🃏
 ## What it does
 
 - **Big playing-card scoreboard.** Each team's level shows as a card you can read from across the table. It flips over every time a team climbs.
-- **Two taps per hand.** Tap the team that won, then tap where the partner finished (1-2, 1-3 or 1-4). The app works out the new level.
+- **Super simple scoring.** Tap the team that won, use **+** and **−** to pick how many levels they go up (1 to 3), and tap **Save**. The app shows the new level before you save, and handles the rules on A for you.
 - **Knows the rules.** Shows whose level is being played and which heart is wild, and handles the "you must win on A" rule. By default a team gets 3 tries at A before dropping back to 2, and you can change house rules like "1-4 counts on A" or "unlimited tries on A".
 - **Mistakes are no big deal.** Undo the last hand, tap any earlier hand to edit or delete it, and every level after it fixes itself.
 - **Quick game or tracked game.** A quick game is the fastest way to start: type four names, or leave them as 1 2 3 4, and play. Nothing is saved. Switch to **Track stats** when you want the game to count.

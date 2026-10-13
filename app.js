@@ -5,6 +5,7 @@ const RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
 const ACE = 12;
 const BUMP = { 2: 3, 3: 2, 4: 1 };                 // partner's finishing place -> levels gained
 const PLACE_LABEL = { 2: '1-2', 3: '1-3', 4: '1-4' };
+const STEP_PLACE = { 3: 2, 2: 3, 1: 4 };           // levels gained -> partner's finishing place
 const SUIT = ['♥', '♠'];
 const STORE_KEY = 'guandan-counter/v1';
 const MUTE_KEY = 'guandan-counter/muted';
@@ -557,7 +558,7 @@ function dealLog(g, st) {
     }
     return `<li class="deal ${s.ignored ? 'ignored' : ''}" data-action="edit-deal" data-game="${g.id}" data-id="${d.id}">
       <span class="num">${n}</span>
-      <span class="what"><span class="suit t${d.winner}">${SUIT[d.winner]}</span>${teamName(d.winner)} ${PLACE_LABEL[d.place]}${d.firstOut ? `<span class="first">${tr('outFirst', esc(pname(d.firstOut)))}</span>` : ''}</span>
+      <span class="what"><span class="suit t${d.winner}">${SUIT[d.winner]}</span>${teamName(d.winner)} +${BUMP[d.place]}${d.firstOut ? `<span class="first">${tr('outFirst', esc(pname(d.firstOut)))}</span>` : ''}</span>
       <span class="res">${res}</span>
     </li>`;
   });
@@ -934,6 +935,7 @@ function sheetDeal() {
   const st = computeState(g, idx);
   const w = s.winner;
   const editing = Boolean(s.dealId);
+  const place = STEP_PLACE[s.step];
 
   const preview = p => {
     const o = outcomeOf(g, st, w, p);
@@ -951,15 +953,17 @@ function sheetDeal() {
     <div class="chip-row">
       ${g.teams[w].map(id => `<button class="chip ${s.firstOut === id ? 'on' : ''}" data-action="deal-first" data-id="${id}">${esc(pname(id))}</button>`).join('')}
     </div>
-    <p class="label">${tr('partnerFinish')}</p>
-    <div class="place-btns">
-      ${[2, 3, 4].map(p => `
-        <button class="place t${w} ${editing && s.place === p ? 'on' : ''}" data-action="deal-place" data-place="${p}">
-          <span class="pl-gain">+${BUMP[p]}</span>
-          <span class="pl-main">${tr('place')[p]} <small>${PLACE_LABEL[p]}</small></span>
-          <span class="pl-prev">${preview(p)}</span>
-        </button>`).join('')}
+    <p class="label">${tr('levelsUp')}</p>
+    <div class="stepper t${w}">
+      <button class="step-btn" data-action="deal-step" data-d="-1" ${s.step <= 1 ? 'disabled' : ''} aria-label="${tr('fewerLevels')}">−</button>
+      <div class="step-mid">
+        <span class="step-num">+${s.step}</span>
+        <span class="step-prev">${preview(place)}</span>
+        <span class="step-hint">${tr('place')[place]} (${PLACE_LABEL[place]})</span>
+      </div>
+      <button class="step-btn" data-action="deal-step" data-d="1" ${s.step >= 3 ? 'disabled' : ''} aria-label="${tr('moreLevels')}">+</button>
     </div>
+    <button class="btn gold big full" data-action="deal-save">${tr('save')}</button>
     ${editing ? `<button class="btn danger full" data-action="delete-deal">${tr('deleteHand')}</button>` : ''}
     <button class="btn subtle full" data-action="close-sheet">${tr('cancel')}</button>`;
 }
@@ -1290,7 +1294,7 @@ function switchView() {
 // Sound for each action; anything not listed gets a soft tap.
 const ACTION_SOUND = {
   record: 'open', 'game-menu': 'open', slot: 'open', 'edit-deal': 'open', 'adjust-open': 'open', 'rename-open': 'open', 'delete-player': 'open',
-  'deal-place': 'chip', 'adjust-save': 'chip', 'start-game': 'chip',
+  'deal-save': 'chip', 'adjust-save': 'chip', 'start-game': 'chip',
   undo: 'undo', 'undo-deal': 'undo',
   'delete-deal': 'del', 'confirm-run': 'del', 'clear-slot': 'del',
   'shuffle-teams': 'flip', 'swap-teams': 'flip', 'pick-player': 'pop',
@@ -1317,7 +1321,20 @@ const actions = {
 
   // play
   record({ team }) {
-    openSheet({ type: 'deal', gameId: data.activeGameId, winner: +team, firstOut: null });
+    openSheet({ type: 'deal', gameId: data.activeGameId, winner: +team, firstOut: null, step: 1 });
+  },
+  'deal-step'({ d }) {
+    const s = ui.sheet;
+    const next = Math.min(3, Math.max(1, s.step + +d));
+    if (next === s.step) return;
+    s.step = next;
+    render();
+    if (!reducedMotion()) {
+      document.querySelector('.step-num')?.animate(
+        [{ transform: `translateY(${+d > 0 ? 8 : -8}px) scale(.85)`, opacity: 0.4 }, { transform: 'none', opacity: 1 }],
+        { duration: 220, easing: 'cubic-bezier(.23, 1, .32, 1)' },
+      );
+    }
   },
   'deal-winner'({ team }) {
     if (ui.sheet.winner !== +team) { ui.sheet.winner = +team; ui.sheet.firstOut = null; }
@@ -1327,10 +1344,10 @@ const actions = {
     ui.sheet.firstOut = ui.sheet.firstOut === id ? null : id;
     render();
   },
-  'deal-place'({ place }) {
+  'deal-save'() {
     const s = ui.sheet;
     const g = findGame(s.gameId);
-    const fields = { winner: s.winner, place: +place, firstOut: s.firstOut };
+    const fields = { winner: s.winner, place: STEP_PLACE[s.step], firstOut: s.firstOut };
     ui.sheet = null;
     if (s.dealId) {
       mutate(tr('handUpdated'), () => Object.assign(g.deals.find(d => d.id === s.dealId), fields));
@@ -1347,7 +1364,7 @@ const actions = {
     const g = findGame(game);
     const d = g.deals.find(x => x.id === id);
     if (d.type === 'adjust') openSheet({ type: 'adjust', gameId: game, dealId: id, levels: d.levels.slice(), declarer: d.declarer });
-    else openSheet({ type: 'deal', gameId: game, dealId: id, winner: d.winner, place: d.place, firstOut: d.firstOut });
+    else openSheet({ type: 'deal', gameId: game, dealId: id, winner: d.winner, step: BUMP[d.place], firstOut: d.firstOut });
   },
   'delete-deal'() {
     const s = ui.sheet;

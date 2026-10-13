@@ -747,12 +747,16 @@ tr[data-action]:active td { background: var(--fill); }
   #toast { transition: opacity 200ms ease; }
 }
 
-/* ---------- opening animation (keeps the felt: it's a brand moment) ---------- */
+/* ---------- opening animation: a lighter midnight blue ----------
+   Title text is 8.3:1 and the tagline 5.5:1 against the middle blue they sit on. */
 #splash {
+  --splash-hi: #3a5a8c;
+  --splash: #2a4675;
+  --splash-lo: #1b2f52;
   position: fixed; inset: 0; z-index: 60;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
   padding: 24px; text-align: center;
-  background: radial-gradient(ellipse 120% 70% at 50% 30%, var(--felt-hi) 0%, var(--felt) 50%, var(--felt-lo) 100%), var(--felt);
+  background: radial-gradient(ellipse 120% 70% at 50% 30%, var(--splash-hi) 0%, var(--splash) 50%, var(--splash-lo) 100%), var(--splash);
 }
 .splash-stage { position: relative; width: 300px; height: 300px; margin-bottom: 4px; }
 .splash-stage .pcard-wrap {

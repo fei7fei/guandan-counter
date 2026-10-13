@@ -997,8 +997,8 @@ function afterRender() {
 
   if (st.winner !== null && prev.winner === null) {
     sound.play('win');
-    celebrate();
-    if (isSpring(g, st)) springBanner();
+    if (isSpring(g, st)) springBanner(); // its own scene instead of the card confetti
+    else celebrate();
   } else if (rose) sound.play('up', rose);
   else if (fell) sound.play('down');
 
@@ -1041,40 +1041,89 @@ function isSpring(g, st) {
 }
 
 function springBanner() {
+  const WREATH = ['🌸', '🌿', '🌷', '🌼', '🍃', '🌺', '🌸', '🌿', '🌷', '🌼', '🍃', '🌺', '🌸', '🌿', '🌷', '🌼'];
   const layer = document.createElement('div');
   layer.className = 'spring';
-  layer.innerHTML = `<span class="spring-word">${tr('spring')}</span>`;
+  layer.innerHTML = `
+    <div class="spring-glow"></div>
+    <div class="spring-center">
+      <div class="spring-ring">${WREATH.map((f, i) => `<span style="--a:${(360 / WREATH.length) * i}deg"><i>${f}</i></span>`).join('')}</div>
+      <span class="spring-word">${tr('spring')}</span>
+    </div>`;
   document.body.appendChild(layer);
-  const word = layer.firstChild;
   sound.play('spring');
   sound.say(tr('springSay'), lang === 'zh' ? 'zh-CN' : 'en-US');
+
+  const glow = layer.querySelector('.spring-glow');
+  const center = layer.querySelector('.spring-center');
+  const word = layer.querySelector('.spring-word');
+  const ring = layer.querySelector('.spring-ring');
+  const TOTAL = 3800;
+  setTimeout(() => layer.remove(), TOTAL + 400);
+
   if (reducedMotion()) {
-    word.animate([{ opacity: 0 }, { opacity: 1, offset: 0.15 }, { opacity: 1, offset: 0.85 }, { opacity: 0 }], { duration: 2400, fill: 'forwards' })
-      .onfinish = () => layer.remove();
+    layer.animate([{ opacity: 0 }, { opacity: 1, offset: 0.12 }, { opacity: 1, offset: 0.85 }, { opacity: 0 }], { duration: TOTAL, fill: 'forwards' });
     return;
   }
+
+  glow.animate(
+    [{ opacity: 0, transform: 'scale(.4)', easing: 'ease-out' }, { opacity: 1, transform: 'scale(1)', offset: 0.18 }, { opacity: 1, transform: 'scale(1)', offset: 0.8 }, { opacity: 0, transform: 'scale(1.15)' }],
+    { duration: TOTAL, fill: 'forwards' },
+  );
+  // easing lives on each keyframe; on the whole animation it would rush the fade-out
+  const pop = 'cubic-bezier(.23, 1, .32, 1)';
   word.animate(
     [
-      { opacity: 0, transform: 'scale(.2) rotate(-12deg)' },
-      { opacity: 1, transform: 'scale(1.18) rotate(3deg)', offset: 0.14 },
-      { opacity: 1, transform: 'scale(1) rotate(-2deg)', offset: 0.24 },
-      { opacity: 1, transform: 'scale(1.04) rotate(0deg)', offset: 0.8 },
-      { opacity: 0, transform: 'scale(1.5) translateY(-20px)' },
+      { opacity: 0, transform: 'scale(.2) rotate(-12deg)', easing: pop },
+      { opacity: 1, transform: 'scale(1.15) rotate(3deg)', offset: 0.12, easing: pop },
+      { opacity: 1, transform: 'scale(1) rotate(-1deg)', offset: 0.2, easing: 'ease-in-out' },
+      { opacity: 1, transform: 'scale(1.05) rotate(0deg)', offset: 0.82, easing: 'ease-in' },
+      { opacity: 0, transform: 'scale(1.35)' },
     ],
-    { duration: 3000, easing: 'cubic-bezier(.23, 1, .32, 1)', fill: 'forwards' },
-  ).onfinish = () => layer.remove();
+    { duration: TOTAL, fill: 'forwards' },
+  );
+  // the wreath blooms flower by flower, turns slowly, then the whole scene fades out
+  ring.querySelectorAll('i').forEach((f, i) => f.animate(
+    [{ transform: 'scale(0) rotate(-90deg)', opacity: 0 }, { transform: 'scale(1.3) rotate(10deg)', opacity: 1, offset: 0.6 }, { transform: 'scale(1) rotate(0deg)', opacity: 1 }],
+    { duration: 520, delay: 180 + i * 70, easing: 'cubic-bezier(.23, 1, .32, 1)', fill: 'backwards' },
+  ));
+  ring.animate([{ transform: 'rotate(0deg)' }, { transform: 'rotate(50deg)' }], { duration: TOTAL, easing: 'linear', fill: 'forwards' });
+  center.animate([{ opacity: 1 }, { opacity: 1, offset: 0.82 }, { opacity: 0 }], { duration: TOTAL, fill: 'forwards' });
+
   const w = window.innerWidth, h = window.innerHeight;
-  for (let i = 0; i < 36; i++) {
+  // butterflies flutter up and across the screen
+  for (let i = 0; i < 4; i++) {
+    const b = document.createElement('span');
+    b.className = 'spring-fly';
+    b.textContent = '🦋';
+    layer.appendChild(b);
+    const fromLeft = i % 2 === 0;
+    const x0 = fromLeft ? -50 : w + 10, x1 = fromLeft ? w + 10 : -50;
+    const y0 = h * (0.55 + Math.random() * 0.35), y1 = h * (0.05 + Math.random() * 0.3);
+    const flip = fromLeft ? 1 : -1;
+    const frames = [];
+    for (let k = 0; k <= 6; k++) {
+      const t = k / 6;
+      frames.push({
+        transform: `translate(${x0 + (x1 - x0) * t}px, ${y0 + (y1 - y0) * t + Math.sin(t * Math.PI * 4) * 30}px) scaleX(${flip}) scaleY(${k % 2 ? 0.75 : 1})`,
+        opacity: k === 0 || k === 6 ? 0 : 1,
+      });
+    }
+    b.animate(frames, { duration: 3000 + Math.random() * 600, delay: 150 + i * 260, easing: 'ease-in-out', fill: 'both' });
+  }
+  // blossoms and leaves drift down
+  const DRIFT = ['🌸', '🌸', '🌼', '🍃', '🌸', '🌺'];
+  for (let i = 0; i < 34; i++) {
     const p = document.createElement('span');
     p.className = 'petal';
-    p.textContent = i % 3 ? '🌸' : '🌼';
+    p.textContent = DRIFT[i % DRIFT.length];
     p.style.left = Math.random() * w + 'px';
-    p.style.fontSize = 18 + Math.random() * 20 + 'px';
+    p.style.fontSize = 16 + Math.random() * 18 + 'px';
     layer.appendChild(p);
-    const sway = (Math.random() - 0.5) * 260;
+    const sway = (Math.random() - 0.5) * 240;
     p.animate(
       [{ transform: 'translate(0, -40px) rotate(0deg)', opacity: 0 }, { opacity: 1, offset: 0.1 }, { transform: `translate(${sway}px, ${h + 40}px) rotate(${(Math.random() - 0.5) * 540}deg)`, opacity: 0.85 }],
-      { duration: 2200 + Math.random() * 1200, delay: Math.random() * 600, easing: 'ease-in', fill: 'forwards' },
+      { duration: 2600 + Math.random() * 1200, delay: Math.random() * 700, easing: 'ease-in', fill: 'both' },
     );
   }
 }

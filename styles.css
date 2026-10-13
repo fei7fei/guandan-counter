@@ -1,3 +1,29 @@
+/* ---------- fonts ----------
+   One rounded family: Nunito for Latin text, Resource Han Rounded (圆体) for Chinese.
+   Both are bundled (OFL, see fonts/) so they work offline. The Chinese file only holds
+   the characters the app's own text uses; anything else falls back to the system font. */
+/* weight ranges must match across scripts, or browsers won't combine the faces */
+@font-face {
+  font-family: "Guandan Rounded"; font-weight: 100 599; font-display: swap;
+  src: url("fonts/nunito.woff2") format("woff2");
+  unicode-range: U+0020-007E, U+00A0-00FF, U+2013-2014, U+2018-201D, U+2022, U+2026, U+2039-203A, U+2192, U+20AC;
+}
+@font-face {
+  font-family: "Guandan Rounded"; font-weight: 600 1000; font-display: swap;
+  src: url("fonts/nunito.woff2") format("woff2");
+  unicode-range: U+0020-007E, U+00A0-00FF, U+2013-2014, U+2018-201D, U+2022, U+2026, U+2039-203A, U+2192, U+20AC;
+}
+@font-face {
+  font-family: "Guandan Rounded"; font-weight: 100 599; font-display: swap;
+  src: url("fonts/rounded-zh-medium.woff2") format("woff2");
+  unicode-range: U+3000-303F, U+4E00-9FFF, U+FF00-FFEF;
+}
+@font-face {
+  font-family: "Guandan Rounded"; font-weight: 600 1000; font-display: swap;
+  src: url("fonts/rounded-zh-bold.woff2") format("woff2");
+  unicode-range: U+3000-303F, U+4E00-9FFF, U+FF00-FFEF;
+}
+
 /* Card-table theme: green felt everywhere, playing cards and sheets are paper. */
 :root {
   --felt-hi: #1a6b4b;
@@ -51,7 +77,7 @@ body {
   background:
     radial-gradient(ellipse 120% 70% at 50% 0%, var(--felt-hi) 0%, var(--felt) 50%, var(--felt-lo) 100%) fixed,
     var(--felt);
-  font-family: ui-rounded, "SF Pro Rounded", -apple-system, system-ui, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-family: "Guandan Rounded", ui-rounded, "SF Pro Rounded", -apple-system, system-ui, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   font-size: 16px;
   line-height: 1.4;
   -webkit-font-smoothing: antialiased;
@@ -584,14 +610,39 @@ tr[data-action]:active td { background: var(--panel-hi); }
 .confetti span.red { color: var(--card-red); }
 
 /* "Spring": won the game while the other side never took a hand */
-.spring { position: fixed; inset: 0; z-index: 41; pointer-events: none; overflow: hidden; display: flex; align-items: center; justify-content: center; }
-.spring-word {
-  font-size: clamp(64px, 20vw, 168px); font-weight: 900; letter-spacing: .04em; line-height: 1;
-  background: linear-gradient(180deg, #ffe3ef 0%, #ff8fbf 45%, #f2c45c 100%);
-  -webkit-background-clip: text; background-clip: text; color: transparent;
-  filter: drop-shadow(0 4px 0 rgba(120, 20, 60, .55)) drop-shadow(0 0 28px rgba(255, 143, 191, .6));
+.spring {
+  --R: min(40vw, 32vh, 210px);   /* wreath radius; the word is sized to fit inside it */
+  position: fixed; inset: 0; z-index: 41; pointer-events: none; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
 }
-.spring .petal { position: absolute; top: 0; line-height: 1; }
+.spring-glow {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255, 214, 120, .35) 0, rgba(255, 150, 196, .22) calc(var(--R) * 1.2), transparent calc(var(--R) * 2.2)),
+    rgba(4, 22, 14, .72);
+}
+.spring-center { position: relative; z-index: 1; width: calc(var(--R) * 2 + 56px); aspect-ratio: 1; display: grid; place-items: center; }
+.spring-center::before {
+  content: ''; position: absolute; inset: 28px; border-radius: 50%;
+  background: radial-gradient(circle, #fff7fb 0%, #ffe1ee 55%, #ffc9df 100%);
+  box-shadow: 0 0 0 6px rgba(255, 255, 255, .35), 0 12px 40px rgba(0, 0, 0, .45), 0 0 80px rgba(255, 170, 210, .55);
+}
+.spring-ring { position: absolute; inset: 0; }
+.spring-ring span {
+  position: absolute; left: 50%; top: 50%; line-height: 1;
+  font-size: calc(var(--R) * .26);
+  transform: translate(-50%, -50%) rotate(var(--a)) translateY(calc(var(--R) * -1)) rotate(calc(var(--a) * -1));
+}
+.spring-ring i { display: block; font-style: normal; filter: drop-shadow(0 3px 4px rgba(0, 0, 0, .3)); }
+.spring-word {
+  position: relative; white-space: nowrap; text-align: center;
+  font-size: calc(var(--R) * .34); font-weight: 900; letter-spacing: .03em; line-height: 1;
+  color: #e0307a;
+  text-shadow: 0 2px 0 #fff, 0 -2px 0 #fff, 2px 0 0 #fff, -2px 0 0 #fff,
+    0 5px 0 #f2c45c, 0 8px 18px rgba(170, 30, 90, .35);
+}
+.spring .petal, .spring-fly { position: absolute; top: 0; left: 0; line-height: 1; }
+.spring-fly { z-index: 2; font-size: 34px; filter: drop-shadow(0 3px 4px rgba(0, 0, 0, .3)); }
 
 /* ---------- tab bar ---------- */
 #tabs {

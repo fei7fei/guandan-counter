@@ -23,6 +23,7 @@ Shuffle up and have fun! 🃏
 - **Spring! 春天！** Win the game without the other team taking a single hand and you get a special celebration, complete with falling blossoms and a voice that calls it out.
 - **English and 中文.** Tap the 中文 / EN button to switch languages. It starts in Chinese on phones set to Chinese.
 - **Fun to use.** Card flips, poker-chip buttons, sound effects and a confetti shower when a team wins. Sound can be turned off with the ♪ button.
+- **A tune to open with.** As the chick waddles in, a little melody plays along: a note for every step, a boing for the hop, chimes as the aces fan out and sparkles as the suits light up. iPhones and iPads don't let web apps play sound before the first tap, so there the opening usually plays without music.
 - **Works offline.** Once it's on your Home Screen, it works with no internet connection.
 
 ## Put it on your iPhone or iPad

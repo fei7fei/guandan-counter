@@ -97,7 +97,7 @@ const sound = (() => {
     return ctx;
   }
 
-  function tone(freq, { t = 0, dur = 0.12, type = 'sine', gain = 0.12, slide = null } = {}) {
+  function tone(freq, { t = 0, dur = 0.12, type = 'sine', gain = 0.12, slide = null, attack = 0.006, out = null } = {}) {
     const c = ac();
     if (!c) return;
     const t0 = c.currentTime + t;
@@ -107,14 +107,14 @@ const sound = (() => {
     o.frequency.setValueAtTime(freq, t0);
     if (slide) o.frequency.exponentialRampToValueAtTime(slide, t0 + dur);
     g.gain.setValueAtTime(0.0001, t0);
-    g.gain.exponentialRampToValueAtTime(gain, t0 + 0.006);
+    g.gain.exponentialRampToValueAtTime(gain, t0 + attack);
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-    o.connect(g).connect(c.destination);
+    o.connect(g).connect(out || c.destination);
     o.start(t0);
     o.stop(t0 + dur + 0.03);
   }
 
-  function noise({ t = 0, dur = 0.08, gain = 0.2, freq = 2000, q = 1, to = null } = {}) {
+  function noise({ t = 0, dur = 0.08, gain = 0.2, freq = 2000, q = 1, to = null, out = null } = {}) {
     const c = ac();
     if (!c) return;
     if (!noiseBuf) {
@@ -134,7 +134,7 @@ const sound = (() => {
     g.gain.setValueAtTime(0.0001, t0);
     g.gain.exponentialRampToValueAtTime(gain, t0 + 0.005);
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-    src.connect(f).connect(g).connect(c.destination);
+    src.connect(f).connect(g).connect(out || c.destination);
     src.start(t0);
     src.stop(t0 + dur + 0.02);
   }
@@ -171,12 +171,73 @@ const sound = (() => {
     nope: () => { tone(220, { dur: 0.09, type: 'square', gain: 0.04 }); tone(196, { t: 0.1, dur: 0.12, type: 'square', gain: 0.04 }); },
   };
 
+  // Opening tune, timed to the opening animation (times in seconds from its start).
+  // It runs through its own volume control so skipping the animation can fade it out.
+  let introBus = null;
+  let introSkipped = false;
+  function introTune({ calm = false, walk = 1.3, step = 0.217, t = 1.54 } = {}) {
+    const c = ac();
+    introBus = c.createGain();
+    introBus.connect(c.destination);
+    const out = introBus;
+    const pluck = (f, at, gain = 0.07) => tone(f, { t: at, dur: 0.16, type: 'triangle', gain, out });
+    const bell = (f, at, gain = 0.055) => {
+      tone(f, { t: at, dur: 0.6, type: 'sine', gain, out });
+      tone(f * 2, { t: at, dur: 0.3, type: 'sine', gain: gain * 0.3, out });
+    };
+    // soft C major chord that swells in and lingers under the fade-out
+    const chord = (at, dur) => [261.63, 329.63, 392, 523.25].forEach(f => tone(f, { t: at, dur, type: 'sine', gain: 0.035, attack: 0.3, out }));
+
+    if (calm) {
+      [783.99, 1046.5, 1318.5, 1567.98].forEach((f, i) => bell(f, 0.4 + i * 0.11, 0.045));
+      chord(1.2, 2.2);
+      return;
+    }
+    // waddle: one bouncy note per step, with a bass note underneath
+    const walkTune = [523.25, 659.25, 587.33, 698.46, 659.25, 783.99]; // C5 E5 D5 F5 E5 G5
+    for (let i = 0; i * step < walk; i++) {
+      pluck(walkTune[i % walkTune.length], i * step);
+      pluck(walkTune[i % walkTune.length] / 2, i * step, 0.035);
+    }
+    // the hop: a little boing
+    tone(330, { t: walk + 0.1, dur: 0.28, type: 'sine', gain: 0.09, slide: 880, out });
+    // each ace flicks out with a rising chime
+    [783.99, 1046.5, 1318.5, 1567.98].forEach((f, i) => {
+      noise({ t: t + i * 0.08, dur: 0.07, gain: 0.07, freq: 2500, q: 0.8, out });
+      bell(f, t + i * 0.08 + 0.02);
+    });
+    // the suits light up one by one: sparkles
+    [2093, 2637, 3136, 4186].forEach((f, i) => tone(f, { t: t + 0.95 + i * 0.11, dur: 0.25, type: 'sine', gain: 0.03, out }));
+    chord(t + 0.9, 1.5);
+  }
+
   return {
     play(name, ...args) {
       if (muted || !fx[name]) return;
       try { fx[name](...args); } catch (e) { /* audio unavailable */ }
     },
     unlock() { if (!muted) ac(); },
+    // Browsers (iPhone and iPad especially) block sound until the first tap, so the tune only
+    // plays if audio is allowed right away. It is never saved up to play late after a tap.
+    intro(opts) {
+      if (muted) return;
+      const c = ac();
+      if (!c) return;
+      introSkipped = false;
+      const go = () => {
+        if (introSkipped) return;
+        try { introTune(opts); } catch (e) { /* audio unavailable */ }
+      };
+      if (c.state === 'running') return go();
+      const asked = performance.now();
+      c.resume().then(() => { if (performance.now() - asked < 250) go(); }).catch(() => {});
+    },
+    stopIntro() {
+      introSkipped = true;
+      if (!introBus || !ctx) return;
+      introBus.gain.setTargetAtTime(0, ctx.currentTime, 0.12);
+      introBus = null;
+    },
     // Spoken words use the device's built-in voices, so they work offline too.
     say(text, langTag) {
       if (muted || !window.speechSynthesis) return;
@@ -1611,6 +1672,7 @@ function runSplash() {
     if (done) return;
     done = true;
     timers.forEach(clearTimeout);
+    sound.stopIntro();
     el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: reducedMotion() ? 300 : 450, easing: 'ease-in', fill: 'forwards' })
       .onfinish = () => el.remove();
     if (!reducedMotion()) el.querySelector('.splash-stage').animate([{ transform: 'none' }, { transform: 'scale(1.08)' }], { duration: 450, fill: 'forwards' });
@@ -1643,6 +1705,7 @@ function runSplash() {
       // Reduce Motion: still a real animation, but small and soft: pieces glide a short way
       // into place, with no waddling, bouncing, spinning or zooming
       const glide = { from: { transform: 'translateY(14px) scale(.96)' }, to: { transform: 'none' } };
+      sound.intro({ calm: true });
       fadeIn(chick, 0, { duration: 800, from: { transform: 'translateX(-40px)' }, to: { transform: 'none' } });
       cards.forEach((c, i) => fadeIn(c, 400 + i * 110, {
         duration: 700,
@@ -1657,6 +1720,7 @@ function runSplash() {
     // 1. waddle in from off-screen left: the whole chick slides across while its body
     //    rocks side to side and bobs, one step every 217ms
     const WALK = 1300, STEP = 217;
+    sound.intro({ walk: WALK / 1000, step: STEP / 1000, t: (WALK + 240) / 1000 });
     const from = -(window.innerWidth / 2 + 140);
     chick.animate(
       [{ opacity: 1, transform: `translateX(${from}px)` }, { opacity: 1, transform: 'translateX(0)' }],

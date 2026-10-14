@@ -852,9 +852,13 @@ tr[data-action]:active td { background: var(--fill); }
 }
 
 /* ---------- phone turned sideways: short and wide ----------
-   The tab bar becomes a rail down the left side, the header shrinks to one line, and the
-   play screen splits in two: the card table on the left, the "who won" buttons and the
-   hands on the right, so recording a hand never needs a scroll. */
+   The tab bar becomes a rail down the left side and the header shrinks to one line. The
+   play screen becomes the table alone, full screen: the two level cards, or everyone's
+   money in 转蛋. Turning the phone upright brings back the buttons and the hands. */
+.turn-hint { display: none; }
+/* the little phone in the hint tips upright, then settles back */
+@keyframes turn-upright { 0%, 30% { transform: rotate(90deg); } 55%, 80% { transform: rotate(0deg); } 100% { transform: rotate(90deg); } }
+
 @media (orientation: landscape) and (max-height: 520px) {
   :root { --rail: 64px; }
   body {
@@ -879,28 +883,49 @@ tr[data-action]:active td { background: var(--fill); }
   .bar-logo { width: 26px; height: 26px; border-radius: 7px; }
   .narrow { gap: 12px; }
 
-  /* play: table on the left, controls and hands on the right */
-  .play-grid { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 10px 14px; align-items: start; }
-  .board { display: contents; }
-  .board > .status { grid-column: 1; grid-row: 1; font-size: 15px; gap: 4px 12px; }
-  .board > .guest-note { grid-column: 1; grid-row: 2; margin: 0; }
-  .board > .teams, .board > .money-board { grid-column: 1; grid-row: 3 / span 4; }
-  .board > .record, .board > .actions-row { grid-column: 2; grid-row: 1 / span 2; }
-  .board > .zhuan-tools { grid-column: 2; grid-row: 3; }
-  .board > .undo-deal { grid-column: 2; grid-row: 4; }
-  .play-grid > .log { grid-column: 2; grid-row: 5; position: static; max-height: none; overflow: visible; }
-  .record .hint { display: none; }
-  .chip-btn { min-height: 64px; font-size: 19px; }
-  .status.champ { font-size: 22px; }
-  .teams, .money-board { padding: 10px; gap: 8px; }
-  .team { padding: 6px 6px 4px; }
-  .team-meta { min-height: 22px; }
   .pcard-wrap { --w: clamp(70px, 24vh, 116px); margin: 6px auto 4px; }
-  .money-team { gap: 6px; padding: 8px 6px; }
-  .money-row { flex-direction: row; gap: 8px; padding: 8px 10px; }
-  .money-row .avatar { display: none; }
-  .mr-name { flex: 1; text-align: left; }
-  .money-row .money { font-size: 19px; }
+
+  /* play: the table alone, full screen and easy to read from across the room. It sits above
+     the tab rail; turn the phone upright to record a hand, undo or settle up. */
+  .play-grid {
+    position: fixed; inset: 0; z-index: 15;
+    display: flex; flex-direction: column; justify-content: center; gap: 6px;
+    padding: max(10px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+    --label-2: var(--on-felt-muted);
+    color: var(--on-felt);
+    background: radial-gradient(ellipse 120% 90% at 50% 0%, var(--felt-hi) 0%, var(--felt) 55%, var(--felt-lo) 100%), var(--felt);
+  }
+  .board { display: contents; }
+  .board > :not(.status):not(.teams):not(.money-board), .play-grid > .log { display: none; }
+  .board > .status { flex: none; font-size: 17px; }
+  .board > .status .playing b { color: var(--gold); }
+  .board > .status.champ { font-size: 24px; }
+  .board > .status.champ small { display: none; }
+  .board > .status.champ .crown { display: none; }
+  .board > .teams, .board > .money-board {
+    flex: 1; min-height: 0; align-items: center; gap: 24px;
+    padding: 0; border-radius: 0; background: none; box-shadow: none;
+  }
+  .board > .teams .team { padding: 6px 10px; }
+  .board > .teams .team-head { font-size: 20px; }
+  .board > .teams .team-meta { min-height: 24px; }
+  .board > .teams .pcard-wrap { --w: min(calc((100dvh - 172px) * 5 / 7), 34vw); margin: 6px auto; }
+  .board > .money-board { align-items: stretch; padding: 4px 0; }
+  .board > .money-board .money-team { justify-content: center; gap: 10px; padding: 10px; }
+  .board > .money-board .team-head { font-size: 20px; }
+  .board > .money-board .money-row { flex: 1; justify-content: center; gap: 2px; padding: 8px 12px; }
+  .board > .money-board .money-row .avatar { display: none; }
+  .board > .money-board .mr-name { font-size: 18px; }
+  .board > .money-board .money-row .money { font-size: clamp(30px, 11vh, 48px); }
+  .board > .money-board .float-money { font-size: 20px; }
+  .turn-hint {
+    display: flex; flex: none; align-items: center; justify-content: center; gap: 8px; margin: 0;
+    font-size: 14px; font-weight: 600; color: var(--on-felt-muted);
+  }
+  .turn-hint .phone {
+    width: 10px; height: 16px; border: 2px solid currentColor; border-radius: 3px;
+    transform: rotate(90deg); animation: turn-upright 2.4s var(--ease-out) infinite;
+  }
 
   /* new game: the card fan sits beside the title instead of above it */
   .hero { display: grid; grid-template-columns: auto minmax(0, 34ch); justify-content: center; align-items: center; column-gap: 28px; text-align: left; padding: 6px 0 0; }
@@ -926,6 +951,7 @@ tr[data-action]:active td { background: var(--fill); }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .turn-hint .phone { animation: none; }
   .backdrop.enter, .sheet.enter, .fan.deal-in .pcard-wrap { animation: none; }
   #toast { transition: opacity 200ms ease; }
 }

@@ -7,4 +7,5 @@ License, as embedded in the font file:
 
 The font's embedding permission (OS/2 fsType) allows embedding.
 fonts/zhushi-zh.woff2 is a subset holding only the Chinese characters this app displays.
+After adding Chinese text, rebuild it with tools/subset-zh-font.py (see the top of that file).
 More from the designer: WeChat official account "杨任东字体".

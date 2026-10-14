@@ -52,6 +52,9 @@ const STRINGS = {
     backTo2: tm => `${tm} back to 2`,
     outFirst: name => `${name} out first`,
     tapToFix: 'Tap any hand to fix it.',
+    turnUpright: 'Turn upright to record a hand',
+    turnUprightDone: 'Turn upright for a new game',
+    turnUprightZhuan: 'Turn upright to record a hand or settle up',
 
     // new game
     newGame: 'New game',
@@ -304,6 +307,9 @@ const STRINGS = {
     backTo2: tm => `${tm}打回2`,
     outFirst: name => `${name}头游`,
     tapToFix: '点任意一局就能修改。',
+    turnUpright: '竖过来记录这一局',
+    turnUprightDone: '竖过来开新一局',
+    turnUprightZhuan: '竖过来记录这一局或结算',
 
     // new game
     newGame: '新比赛',

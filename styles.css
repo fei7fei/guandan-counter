@@ -353,6 +353,12 @@ h2 { font-size: 20px; font-weight: 700; margin-bottom: 10px; }
 .team-players { color: var(--on-felt-muted); font-size: 15px; min-height: 20px; overflow-wrap: anywhere; }
 .team-meta { min-height: 26px; display: flex; justify-content: center; align-items: center; }
 .team.declaring { border-color: rgba(242, 196, 92, .55); background: rgba(242, 196, 92, .08); }
+/* 掼蛋: the cards are the "who won" buttons. A press sinks the whole side a touch. */
+.team.tap { width: 100%; transition: transform 160ms var(--ease-out), border-color 240ms ease, background-color 240ms ease; }
+.team.tap .pcard-wrap { transition: transform 220ms var(--ease-out); }
+.team.tap:active { transform: scale(.97); }
+.team.tap:active .pcard-wrap { transform: translateY(3px); }
+.tap-hint { margin: 0; }
 .team.champ { border-color: var(--gold); background: rgba(242, 196, 92, .14); }
 
 /* ---------- 转蛋: money on the felt ---------- */
@@ -505,6 +511,7 @@ button.money-row:active { transform: scale(.97); }
 
 @media (hover: hover) and (pointer: fine) {
   .mode-card:hover { background: rgba(255, 255, 255, .12); }
+  .team.tap:hover .pcard-wrap { transform: translateY(-4px); }
 }
 
 .badge {
@@ -966,7 +973,8 @@ tr[data-action]:active td { background: var(--fill); }
   .board > .teams .team { padding: 6px 10px; }
   .board > .teams .team-head { font-size: 20px; }
   .board > .teams .team-meta { position: absolute; top: 8px; right: 10px; min-height: 0; }
-  .board > .teams .pcard-wrap { --w: min(calc((100dvh - 196px) * 5 / 7), 30vw); margin: 6px auto 2px; }
+  .board > .teams .pcard-wrap { --w: min(calc((100dvh - 150px) * 5 / 7), 30vw); margin: 6px auto 2px; }
+  .board > .tap-hint { flex: none; color: var(--on-felt-muted); }
   .board > .money-board { align-items: stretch; padding: 4px 0; }
   .board > .money-board .money-team { justify-content: center; gap: 10px; padding: 10px; }
   .board > .money-board .team-head { font-size: 20px; }

@@ -613,12 +613,7 @@ function renderPlay() {
          <button class="btn big" data-action="rematch">${tr('rematch')}</button>
          <button class="btn big" data-action="share-game" data-id="${g.id}">${tr('shareResult')}</button>
        </div>`
-    : `<div class="record">
-         <p class="hint">${tr('whoWon')}</p>
-         <div class="record-btns">
-           ${[0, 1].map(t => `<button class="chip-btn t${t}" data-action="record" data-team="${t}"><span>${tr('teamWon', teamName(t))}</span></button>`).join('')}
-         </div>
-       </div>`;
+    : g.deals.length ? '' : `<p class="hint center tap-hint">${tr('tapCardToWin')}</p>`;
 
   return `
     ${header(tr('appTitle'), { modeSwitch: true, right: `<button class="icon-btn" data-action="game-menu" aria-label="${tr('gameOptions')}">•••</button>` })}
@@ -626,7 +621,7 @@ function renderPlay() {
       <section class="board">
         ${status}
         ${g.guest ? `<p class="hint center guest-note">${tr('guestBadge')}</p>` : ''}
-        <div class="teams">${[0, 1].map(t => teamCard(g, st, t)).join('')}</div>
+        <div class="teams">${[0, 1].map(t => teamCard(g, st, t, '', !done)).join('')}</div>
         ${record}
         <button class="btn subtle undo-deal" data-action="undo-deal" ${g.deals.length ? '' : 'disabled'}>${tr('undoLast')}</button>
       </section>
@@ -721,20 +716,23 @@ function zhuanLog(g) {
   return `<ol class="deals">${rows.reverse().join('')}</ol><p class="hint small">${tr('tapToFix')}</p>`;
 }
 
-function teamCard(g, st, t, size = '') {
+// While a game is on, each team's card is the button that records "this team won".
+function teamCard(g, st, t, size = '', tap = false) {
   const declaring = st.winner === null && st.declarer === t;
   let meta = '';
   if (st.winner === t) meta = `<span class="badge gold">${tr('champions')}</span>`;
   else if (st.levels[t] === ACE && st.winner === null) {
     meta = `<span class="badge hot">${tr('onA', st.fails[t] + 1, g.rules.aMaxFails)}</span>`;
   } else if (declaring) meta = `<span class="badge">${tr('theirLevel')}</span>`;
+  const tag = tap ? 'button' : 'div';
+  const attrs = tap ? ` data-action="record" data-team="${t}" aria-label="${tr('teamWon', teamName(t))}"` : '';
   return `
-    <div class="team t${t} ${declaring ? 'declaring' : ''} ${st.winner === t ? 'champ' : ''}">
+    <${tag} class="team t${t} ${tap ? 'tap' : ''} ${declaring ? 'declaring' : ''} ${st.winner === t ? 'champ' : ''}"${attrs}>
       <div class="team-head">${teamName(t)}</div>
       <div class="team-players">${esc(teamNames(g.teams[t]))}</div>
       ${playingCard(st.levels[t], t, size)}
       <div class="team-meta">${meta}</div>
-    </div>`;
+    </${tag}>`;
 }
 
 function dealLog(g, st) {

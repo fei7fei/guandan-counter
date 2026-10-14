@@ -105,6 +105,19 @@ const sound = (() => {
   let muted = false;
   try { muted = localStorage.getItem(MUTE_KEY) === '1'; } catch (e) { /* ignore */ }
 
+  // Recorded clips (the GG easter egg) are fetched and decoded once, then played through
+  // the same unlocked audio context as everything else, so they work right after a tap.
+  const clips = {};
+  function loadClip(url) {
+    const c = ac();
+    if (!c) return Promise.resolve(null);
+    clips[url] ??= fetch(url)
+      .then(r => r.arrayBuffer())
+      .then(b => new Promise((res, rej) => c.decodeAudioData(b, res, rej)))
+      .catch(e => { delete clips[url]; throw e; });
+    return clips[url];
+  }
+
   function ac() {
     if (!ctx) {
       const C = window.AudioContext || window.webkitAudioContext;
@@ -245,6 +258,17 @@ const sound = (() => {
       try { fx[name](...args); } catch (e) { /* audio unavailable */ }
     },
     unlock() { if (!muted) ac(); },
+    clip(url) {
+      if (muted) return;
+      loadClip(url).then(buf => {
+        if (!buf) return;
+        const src = ctx.createBufferSource();
+        src.buffer = buf;
+        src.connect(ctx.destination);
+        src.start();
+      }).catch(() => { /* audio unavailable */ });
+    },
+    preload(url) { loadClip(url).catch(() => {}); },
     // Browsers (iPhone and iPad especially) block sound until the first tap, so the tune only
     // plays if audio is allowed right away. It is never saved up to play late after a tap.
     intro(opts) {
@@ -1524,15 +1548,17 @@ function ruleVisual(v) {
 function sheetRules() {
   const sections = tr(ui.mode === 'zhuan' ? 'rulesZhuan' : 'rulesGuandan');
   return `
-    <h2>${tr('rulesTitle', ui.mode)}</h2>
+    <div class="sheet-head">
+      <h2>${tr('rulesTitle', ui.mode)}</h2>
+      <button class="sheet-x" data-action="close-sheet" aria-label="${tr('close')}"><svg viewBox="0 0 14 14" aria-hidden="true"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+    </div>
     <div class="rules-body">
       ${sections.map(sec => `<section class="rules-sec">
         <h3>${sec.h}</h3>
         <ul>${sec.items.map(it => `<li>${it}</li>`).join('')}</ul>
         ${[].concat(sec.v || []).map(ruleVisual).join('')}
       </section>`).join('')}
-    </div>
-    <button class="btn ink full" data-action="close-sheet">${tr('gotIt')}</button>`;
+    </div>`;
 }
 
 function sheetConfirm() {
@@ -1576,9 +1602,13 @@ function afterRender() {
   }
 
   if (st.winner !== null && prev.winner === null) {
-    sound.play('win');
-    if (isSpring(g, st)) springBanner(); // its own scene instead of the card confetti
-    else celebrate();
+    const spring = isSpring(g, st);
+    if (spring && ggMode) ggBanner(); // the secret: GG EZ instead of Spring
+    else {
+      sound.play('win');
+      if (spring) springBanner(); // its own scene instead of the card confetti
+      else celebrate();
+    }
   } else if (rose) sound.play('up', rose);
   else if (fell) sound.play('down');
 
@@ -1668,6 +1698,39 @@ function flipCard(t, diff) {
 }
 
 // The winners took the game without the other side winning a single hand.
+// ---------- GG mode (a secret) ----------
+// Tapping the title on the mode screen turns it on. Then a Spring plays the "GG EZ" clip
+// with its GIF instead of the blossoms. Both files load only once it's switched on.
+const GG_KEY = 'guandan-counter/gg';
+const GG_SOUND = 'assets/gg-ez.mp3';
+const GG_GIF = 'assets/gg-ez.webp';
+let ggMode = (() => { try { return localStorage.getItem(GG_KEY) === '1'; } catch (e) { return false; } })();
+
+function preloadGG() {
+  sound.preload(GG_SOUND);
+  new Image().src = GG_GIF;
+}
+if (ggMode) preloadGG();
+
+function ggBanner() {
+  const layer = document.createElement('div');
+  layer.className = 'gg';
+  // a fresh URL so the GIF starts from its first frame every time
+  layer.innerHTML = `<img src="${GG_GIF}?t=${Date.now()}" alt="GG EZ">`;
+  document.body.appendChild(layer);
+  sound.clip(GG_SOUND);
+  const TOTAL = 3300;
+  const done = () => layer.remove();
+  layer.addEventListener('click', done);
+  setTimeout(done, TOTAL + 100);
+  layer.animate([{ opacity: 0 }, { opacity: 1, offset: 0.06 }, { opacity: 1, offset: 0.9 }, { opacity: 0 }], { duration: TOTAL, fill: 'forwards' });
+  if (reducedMotion()) return;
+  layer.querySelector('img').animate(
+    [{ transform: 'scale(.7) rotate(-3deg)' }, { transform: 'scale(1.04) rotate(1deg)', offset: 0.1 }, { transform: 'scale(1) rotate(0deg)', offset: 0.16 }, { transform: 'scale(1)' }],
+    { duration: TOTAL, easing: 'cubic-bezier(.23, 1, .32, 1)' },
+  );
+}
+
 function isSpring(g, st) {
   if (st.winner === null) return false;
   return !g.deals.some((d, i) => d.type !== 'adjust' && !st.steps[i].ignored && d.winner !== st.winner);
@@ -1884,7 +1947,7 @@ const ACTION_SOUND = {
   'shuffle-teams': 'flip', 'swap-teams': 'flip', 'pick-player': 'pop',
   'zdeal-save': null, 'pairing-open': 'open', 'settle-open': 'open', 'pairing-pick': 'flip', 'finish-zhuan': 'chip',
   'jokers-toggle': 'pop', 'pick-mode': 'open', 'choose-mode': 'chip',
-  'live-bomb': null, 'live-jokers': null, 'rename-seat': 'open', 'rules-open': 'open',
+  'live-bomb': null, 'live-jokers': null, 'rename-seat': 'open', 'rules-open': 'open', 'gg-toggle': null, 'mode-back': 'undo',
   'toggle-sound': null, 'toggle-lang': 'flip',
 };
 
@@ -2220,8 +2283,19 @@ const actions = {
   'stats-mode'({ m }) { ui.statsMode = m; render(); },
 
   // mode: 掼蛋 or 转蛋
-  'pick-mode'() { showModePicker(); },
+  'pick-mode'() { showModePicker({ back: true }); },
+  'mode-back'() { hideModePicker(); },
   'rules-open'() { openSheet({ type: 'rules' }); },
+  'gg-toggle'(_, el) {
+    ggMode = !ggMode;
+    try { localStorage.setItem(GG_KEY, ggMode ? '1' : '0'); } catch (e) { /* ignore */ }
+    el.querySelector('.gg-tag')?.remove();
+    if (ggMode) {
+      el.insertAdjacentHTML('beforeend', '<span class="gg-tag">GG</span>');
+      preloadGG();
+      sound.clip(GG_SOUND);
+    } else sound.play('undo');
+  },
   'pick-guest'({ guest }) {
     const on = guest === '1';
     setGuestPref(on);
@@ -2400,7 +2474,16 @@ function setMode(m) {
 }
 
 // Shown right after the opening animation, and from the mode button on the Play screen.
-function showModePicker() {
+// The unfinished game a mode would resume, if any (a won 掼蛋 game doesn't count).
+function gameInProgress(mode) {
+  const g = findGame(data[activeKey(mode)]);
+  if (!g || g.abandoned || g.finished) return null;
+  return mode === 'zhuan' || computeState(g).winner === null ? g : null;
+}
+
+// Opened from the Play screen's mode button it gets a Back button, so it never looks like
+// switching modes would end the game (each mode keeps its own game in progress).
+function showModePicker({ back = false } = {}) {
   if (document.getElementById('mode-pick')) return;
   ui.sheet = null;
   renderSheet();
@@ -2410,8 +2493,9 @@ function showModePicker() {
   el.setAttribute('aria-modal', 'true');
   el.setAttribute('aria-label', tr('pickModeTitle'));
   el.innerHTML = `
+    ${back ? `<button class="mp-back" data-action="mode-back">${tr('back')}</button>` : ''}
     <div class="mp-inner">
-      <h2 class="mp-title">${tr('pickModeTitle')}</h2>
+      <h2 class="mp-title" data-action="gg-toggle">${tr('pickModeTitle')}${ggMode ? '<span class="gg-tag">GG</span>' : ''}</h2>
       <div class="mp-kind">
         <div class="seg mp-seg">
           <button class="${guestPref() ? 'on' : ''}" data-action="pick-guest" data-guest="1">${tr('modeGuest')}</button>
@@ -2421,11 +2505,11 @@ function showModePicker() {
       </div>
       <button class="mode-card ${ui.mode === 'normal' ? 'last' : ''}" data-action="choose-mode" data-mode="normal">
         <span class="mc-cards" aria-hidden="true">${playingCard(0, 0, 'sm')}${playingCard(ACE, 1, 'sm')}</span>
-        <span class="mc-text"><b>${tr('modeNormal')}</b><span>${tr('modeNormalSub')}</span></span>
+        <span class="mc-text"><b>${tr('modeNormal')}</b><span>${tr('modeNormalSub')}</span>${gameInProgress('normal') ? `<em class="mc-live">${tr('gameInProgress')}</em>` : ''}</span>
       </button>
       <button class="mode-card ${ui.mode === 'zhuan' ? 'last' : ''}" data-action="choose-mode" data-mode="zhuan">
         <span class="mc-cards" aria-hidden="true">${playingCard(0, 0, 'sm')}<span class="coin">¥</span><span class="coin two">$</span></span>
-        <span class="mc-text"><b>${tr('modeZhuan')}</b><span>${tr('modeZhuanSub')}</span></span>
+        <span class="mc-text"><b>${tr('modeZhuan')}</b><span>${tr('modeZhuanSub')}</span>${gameInProgress('zhuan') ? `<em class="mc-live">${tr('gameInProgress')}</em>` : ''}</span>
       </button>
     </div>`;
   document.body.appendChild(el);

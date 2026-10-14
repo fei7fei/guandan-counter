@@ -1645,11 +1645,18 @@ function afterRender() {
 
   if (st.winner !== null && prev.winner === null) {
     const spring = isSpring(g, st);
-    if (spring && ggMode) ggBanner(); // the secret: GG EZ instead of Spring
+    if (ggMode && !spring) ggBanner(); // the secret: every win is a GG EZ
     else {
       sound.play('win');
       if (spring) springBanner(); // its own scene instead of the card confetti
       else celebrate();
+      // in GG mode a Spring keeps its blossoms, then the GG EZ follows (unless it was undone)
+      if (spring && ggMode) {
+        setTimeout(() => {
+          const now = findGame(g.id);
+          if (ggMode && now && computeState(now).winner !== null) ggBanner();
+        }, 3900);
+      }
     }
   } else if (rose) sound.play('up', rose);
   else if (fell) sound.play('down');
@@ -1742,8 +1749,8 @@ function flipCard(t, diff) {
 // The winners took the game without the other side winning a single hand.
 // ---------- GG mode (a secret) ----------
 // Tapping the title on the mode screen turns it on, for this session only: every launch
-// starts with it off. Then a Spring plays the "GG EZ" clip with its GIF instead of the
-// blossoms. Both files load only once it's switched on.
+// starts with it off. Then every game win plays the "GG EZ" clip with its GIF (a Spring
+// keeps its blossoms first). Both files load only once it's switched on.
 const GG_SOUND = 'assets/gg-ez.mp3';
 const GG_GIF = 'assets/gg-ez.webp';
 let ggMode = false;

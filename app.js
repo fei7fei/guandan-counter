@@ -492,7 +492,7 @@ const netClass = net => (netSum(net) > 0 ? 'pos' : netSum(net) < 0 ? 'neg' : '')
 
 function computeZhuanStats(since = 0) {
   const players = {}, pairs = {};
-  const blank = () => ({ games: 0, hands: 0, handWins: 0, doubles: 0, firstOuts: 0, net: {} });
+  const blank = () => ({ games: 0, hands: 0, handWins: 0, doubles: 0, firstOuts: 0, firstUnknown: 0, net: {} });
   for (const g of data.games) {
     if (!isZhuan(g) || g.guest || g.createdAt < since || !g.deals.length) continue;
     const cur = g.currency;
@@ -513,10 +513,18 @@ function computeZhuanStats(since = 0) {
         }
       });
       if (d.firstOut && players[d.firstOut]) players[d.firstOut].firstOuts++;
+      else if (!d.firstOut) for (const id of d.teams[d.winner]) players[id].firstUnknown++;
     }
   }
   return { players, pairs };
 }
+
+// "Out 1st" in the stats tables: the count, plus how many won hands didn't record it.
+const firstCell = s => `${s.firstOuts}${s.firstUnknown ? ` <span class="nr">+${s.firstUnknown}?</span>` : ''}`;
+const firstLegend = rows => {
+  const n = rows.find(s => s.firstUnknown)?.firstUnknown;
+  return n ? `<p class="hint small nr-legend"><span class="nr">+${n}?</span> ${tr('firstLegend', n)}</p>` : '';
+};
 
 const byMoney = (a, b) => netSum(b.net) - netSum(a.net) || (b.hands ? b.handWins / b.hands : 0) - (a.hands ? a.handWins / a.hands : 0);
 
@@ -527,7 +535,7 @@ function addInto(a, b) {
 
 function computeStats(since = 0) {
   const players = {}, pairs = {}, h2h = {};
-  const blank = () => ({ games: 0, wins: 0, deals: 0, dealWins: 0, doubles: 0, firstOuts: 0 });
+  const blank = () => ({ games: 0, wins: 0, deals: 0, dealWins: 0, doubles: 0, firstOuts: 0, firstUnknown: 0 });
 
   for (const g of data.games) {
     if (g.guest || isZhuan(g) || g.createdAt < since) continue;
@@ -561,6 +569,8 @@ function computeStats(since = 0) {
 
     for (const d of deals) {
       if (d.firstOut && players[d.firstOut]) players[d.firstOut].firstOuts++;
+      // a won hand with no first out recorded: either winner might have gone out first
+      else if (!d.firstOut) for (const id of g.teams[d.winner]) players[id].firstUnknown++;
     }
   }
   return { players, pairs, h2h };
@@ -733,6 +743,12 @@ function bombLive(g) {
   </div>`;
 }
 
+// Who went out first, or (in a game that counts for stats) a note that nobody recorded it.
+function firstTag(g, d) {
+  if (d.firstOut) return `<span class="first">${tr('outFirst', esc(pname(d.firstOut)))}</span>`;
+  return g.guest ? '' : `<span class="first nr">${tr('firstNotRec')}</span>`;
+}
+
 function zhuanLog(g) {
   if (!g.deals.length) return `<p class="empty">${tr('freshDeckZhuan')}</p>`;
   const rows = g.deals.map((d, i) => {
@@ -740,7 +756,7 @@ function zhuanLog(g) {
     const extras = [d.bombs ? `💣×${d.bombs}` : '', d.jokers ? tr('jokersShort') : ''].filter(Boolean).join(' ');
     return `<li class="deal" data-action="edit-deal" data-game="${g.id}" data-id="${d.id}">
       <span class="num">${i + 1}</span>
-      <span class="what"><span class="suit t${d.winner}">${SUIT[d.winner]}</span>${esc(teamNames(d.teams[d.winner]))} ×${d.mult}${extras ? ` <span class="muted">${extras}</span>` : ''}${d.firstOut ? `<span class="first">${tr('outFirst', esc(pname(d.firstOut)))}</span>` : ''}</span>
+      <span class="what"><span class="suit t${d.winner}">${SUIT[d.winner]}</span>${esc(teamNames(d.teams[d.winner]))} ×${d.mult}${extras ? ` <span class="muted">${extras}</span>` : ''}${firstTag(g, d)}</span>
       <span class="res"><span class="money pos">${tr('eachWins', fmtMoney(amt, g.currency))}</span></span>
     </li>`;
   });
@@ -793,7 +809,7 @@ function dealLog(g, st) {
     }
     return `<li class="deal ${s.ignored ? 'ignored' : ''}" data-action="edit-deal" data-game="${g.id}" data-id="${d.id}">
       <span class="num">${n}</span>
-      <span class="what"><span class="suit t${d.winner}">${SUIT[d.winner]}</span>${teamName(d.winner)} +${BUMP[d.place]}${d.firstOut ? `<span class="first">${tr('outFirst', esc(pname(d.firstOut)))}</span>` : ''}</span>
+      <span class="what"><span class="suit t${d.winner}">${SUIT[d.winner]}</span>${teamName(d.winner)} +${BUMP[d.place]}${firstTag(g, d)}</span>
       <span class="res">${res}</span>
     </li>`;
   });
@@ -1091,9 +1107,10 @@ function renderStats() {
               <td>${s.wins}-${s.games - s.wins}</td>
               <td><b>${pct(s.wins, s.games)}</b></td>
               <td>${pct(s.dealWins, s.deals)} <span class="muted">${tr('ofN', s.deals)}</span></td>
-              <td>${s.firstOuts}</td>
+              <td>${firstCell(s)}</td>
             </tr>`).join('')}</tbody>
         </table></div>
+        ${firstLegend(prow)}
       </section>
       <section class="panel">
         <h2>${tr('partnerships')}</h2>
@@ -1150,9 +1167,10 @@ function renderZhuanStats(seg) {
               <td>${s.handWins}-${s.hands - s.handWins}</td>
               <td>${pct(s.handWins, s.hands)}</td>
               <td>${s.games}</td>
-              <td>${s.firstOuts}</td>
+              <td>${firstCell(s)}</td>
             </tr>`).join('')}</tbody>
         </table></div>
+        ${firstLegend(prow)}
       </section>
       <section class="panel">
         <h2>${tr('partnerships')}</h2>
@@ -1213,7 +1231,7 @@ function renderPlayers() {
 
 function renderPlayerDetail(p) {
   const { players, pairs, h2h } = computeStats();
-  const s = players[p.id] || { games: 0, wins: 0, deals: 0, dealWins: 0, doubles: 0, firstOuts: 0 };
+  const s = players[p.id] || { games: 0, wins: 0, deals: 0, dealWins: 0, doubles: 0, firstOuts: 0, firstUnknown: 0 };
   const partners = Object.values(pairs)
     .filter(x => x.ids.includes(p.id))
     .map(x => ({ ...x, other: x.ids.find(id => id !== p.id) }))
@@ -1240,7 +1258,7 @@ function renderPlayerDetail(p) {
         <div class="tile"><span>${tr('tileGames')}</span><b>${s.wins}-${s.games - s.wins}</b></div>
         <div class="tile"><span>${tr('tileWinRate')}</span><b>${pct(s.wins, s.games)}</b></div>
         <div class="tile"><span>${tr('tileHands')}</span><b>${pct(s.dealWins, s.deals)}</b></div>
-        <div class="tile"><span>${tr('tileOutFirst')}</span><b>${s.firstOuts}</b></div>
+        <div class="tile"><span>${tr('tileOutFirst')}</span><b>${s.firstOuts}</b>${s.firstUnknown ? `<small class="nr">${tr('notRecordedN', s.firstUnknown)}</small>` : ''}</div>
       </div>
       ${table(tr('withPartner'), partners, tr('noPartner'))}
       ${table(tr('vsOpp'), opps, tr('noRivals'))}
@@ -1273,10 +1291,11 @@ function zhuanPlayerPanel(p) {
     <section class="panel">
       <h2>${tr('modeZhuan')}</h2>
       <div class="tiles">
-        <div class="tile"><span>${tr('thNet')}</span><b class="money ${netClass(s.net)}">${fmtNet(s.net)}</b></div>
+        <div class="tile wide"><span>${tr('thNet')}</span><b class="money ${netClass(s.net)}">${fmtNet(s.net)}</b></div>
         <div class="tile"><span>${tr('thHandsWL')}</span><b>${s.handWins}-${s.hands - s.handWins}</b></div>
         <div class="tile"><span>${tr('tileHands')}</span><b>${pct(s.handWins, s.hands)}</b></div>
         <div class="tile"><span>${tr('tileGames')}</span><b>${s.games}</b></div>
+        <div class="tile"><span>${tr('tileOutFirst')}</span><b>${s.firstOuts}</b>${s.firstUnknown ? `<small class="nr">${tr('notRecordedN', s.firstUnknown)}</small>` : ''}</div>
       </div>
       <div class="table-wrap"><table>
         <thead><tr><th>${tr('withPartnerShort')}</th><th>${tr('thNet')}</th><th>${tr('thHandsWL')}</th><th>${tr('thWin')}</th></tr></thead>
@@ -1322,7 +1341,7 @@ function renderSheet() {
     return;
   }
   delete root.dataset.leaving;
-  const body = { deal: sheetDeal, menu: sheetMenu, adjust: sheetAdjust, pick: sheetPick, confirm: sheetConfirm, rename: sheetRename, seatname: sheetSeatName, rules: sheetRules, pairing: sheetPairing, settle: sheetSettle }[s.type]();
+  const body = { deal: sheetDeal, menu: sheetMenu, adjust: sheetAdjust, pick: sheetPick, confirm: sheetConfirm, rename: sheetRename, seatname: sheetSeatName, rules: sheetRules, firstpick: sheetFirstPick, pairing: sheetPairing, settle: sheetSettle }[s.type]();
   root.innerHTML = `
     <div class="backdrop ${ui.sheetIsNew ? 'enter' : ''}" data-action="close-sheet"></div>
     <div class="sheet ${ui.sheetIsNew ? 'enter' : ''}" role="dialog" aria-modal="true">
@@ -1477,6 +1496,20 @@ function sheetPick() {
     <button class="btn subtle full" data-action="close-sheet">${tr('cancel')}</button>`;
 }
 
+// Add "who went out first" to a hand after the fact: one tap saves it.
+function sheetFirstPick() {
+  const s = ui.sheet;
+  const g = findGame(s.gameId);
+  const d = g.deals.find(x => x.id === s.dealId);
+  const team = isZhuan(g) ? d.teams[d.winner] : g.teams[d.winner];
+  return `
+    <h2>${tr('whoFirst')}</h2>
+    <div class="first-pick">
+      ${team.map(id => `<button class="chip-btn t${d.winner}" data-action="first-set" data-id="${esc(id)}"><span>${esc(pname(id))}</span></button>`).join('')}
+    </div>
+    <button class="btn subtle full" data-action="close-sheet">${tr('cancel')}</button>`;
+}
+
 // Quick-game seats: the name lives in the seat's id, so renaming rewrites the id everywhere.
 function sheetSeatName() {
   const s = ui.sheet;
@@ -1572,14 +1605,23 @@ function sheetConfirm() {
 
 // ---------- feedback: toast, card flips, confetti ----------
 let toastTimer = null;
-function toast(msg, withUndo = false) {
+function toast(msg, withUndo = false, extra = null) {
   const el = document.getElementById('toast');
-  el.innerHTML = `<span>${esc(msg)}</span>${withUndo ? `<button data-action="undo">${tr('undo')}</button>` : ''}`;
+  el.innerHTML = `<span>${esc(msg)}</span>`
+    + (extra ? `<button class="toast-extra" data-action="${extra.action}" data-id="${esc(extra.id)}">${extra.label}</button>` : '')
+    + (withUndo ? `<button data-action="undo">${tr('undo')}</button>` : '');
   el.classList.remove('show');
   void el.offsetWidth; // restart the transition so repeated toasts still pop
   el.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove('show'), withUndo ? 5000 : 2500);
+  toastTimer = setTimeout(() => el.classList.remove('show'), extra ? 6500 : withUndo ? 5000 : 2500);
+}
+
+// A hand saved without "who went out first" in a game that counts for stats: say so and
+// offer to add it, without getting in the way. Undo stays on the toast.
+function nudgeFirst(g, dealId, firstOut) {
+  if (firstOut || g.guest) return;
+  toast(tr('firstMissed'), true, { action: 'first-add', id: dealId, label: tr('addIt') });
 }
 
 function afterRender() {
@@ -1719,7 +1761,7 @@ function ggBanner() {
   layer.innerHTML = `<img src="${GG_GIF}?t=${Date.now()}" alt="GG EZ">`;
   document.body.appendChild(layer);
   sound.clip(GG_SOUND);
-  const TOTAL = 3300;
+  const TOTAL = 4300; // the clip is 4 s; the GIF loops underneath it
   const done = () => layer.remove();
   layer.addEventListener('click', done);
   setTimeout(done, TOTAL + 100);
@@ -1947,7 +1989,7 @@ const ACTION_SOUND = {
   'shuffle-teams': 'flip', 'swap-teams': 'flip', 'pick-player': 'pop',
   'zdeal-save': null, 'pairing-open': 'open', 'settle-open': 'open', 'pairing-pick': 'flip', 'finish-zhuan': 'chip',
   'jokers-toggle': 'pop', 'pick-mode': 'open', 'choose-mode': 'chip',
-  'live-bomb': null, 'live-jokers': null, 'rename-seat': 'open', 'rules-open': 'open', 'gg-toggle': null, 'mode-back': 'undo',
+  'live-bomb': null, 'live-jokers': null, 'rename-seat': 'open', 'rules-open': 'open', 'gg-toggle': null, 'mode-back': 'undo', 'first-add': 'open', 'first-set': 'chip',
   'toggle-sound': null, 'toggle-lang': 'flip',
 };
 
@@ -1994,10 +2036,23 @@ const actions = {
       return;
     }
     const amt = handAmount(g, fields);
+    const id = uid();
     mutate(tr('pairWins', teamNames(fields.teams[fields.winner]), fmtMoney(amt, g.currency)), () => {
-      g.deals.push({ id: uid(), at: Date.now(), ...fields });
+      g.deals.push({ id, at: Date.now(), ...fields });
       delete g.live;
     });
+    nudgeFirst(g, id, fields.firstOut);
+  },
+  'first-add'({ id }) {
+    const g = activeGame();
+    if (g?.deals.some(d => d.id === id)) openSheet({ type: 'firstpick', gameId: g.id, dealId: id });
+  },
+  'first-set'({ id }) {
+    const s = ui.sheet;
+    const d = findGame(s.gameId)?.deals.find(x => x.id === s.dealId);
+    ui.sheet = null;
+    if (!d) return render();
+    mutate(tr('outFirst', pname(id)), () => { d.firstOut = id; });
   },
   'live-bomb'({ d }) {
     const g = activeGame();
@@ -2066,7 +2121,9 @@ const actions = {
     const label = o.kind === 'win' ? tr('takesGame', tm)
       : o.kind === 'miss' ? tr('wonButA', tm)
       : tr('climbs', tm, rank(o.to));
-    mutate(label, () => g.deals.push({ id: uid(), at: Date.now(), ...fields }));
+    const id = uid();
+    mutate(label, () => g.deals.push({ id, at: Date.now(), ...fields }));
+    nudgeFirst(g, id, fields.firstOut);
   },
   'edit-deal'({ game, id }) {
     const g = findGame(game);
@@ -2290,11 +2347,11 @@ const actions = {
     ggMode = !ggMode;
     try { localStorage.setItem(GG_KEY, ggMode ? '1' : '0'); } catch (e) { /* ignore */ }
     el.querySelector('.gg-tag')?.remove();
+    // silent either way, so nobody nearby hears the secret being switched
     if (ggMode) {
       el.insertAdjacentHTML('beforeend', '<span class="gg-tag">GG</span>');
       preloadGG();
-      sound.clip(GG_SOUND);
-    } else sound.play('undo');
+    }
   },
   'pick-guest'({ guest }) {
     const on = guest === '1';

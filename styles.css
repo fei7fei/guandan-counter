@@ -773,6 +773,7 @@ tr[data-action]:active td { background: var(--fill); }
 .tile { background: var(--surface); border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; }
 .tile span { font-size: 13px; color: var(--label-2); font-weight: 600; }
 .tile b { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.tile.wide { grid-column: 1 / -1; }
 
 .backup p { margin: 0 0 12px; font-size: 15px; }
 
@@ -875,6 +876,14 @@ tr[data-action]:active td { background: var(--fill); }
 #toast span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #toast button { color: var(--on-accent); background: var(--accent); font-weight: 600; padding: 8px 16px; border-radius: 999px; flex-shrink: 0; transition: transform 140ms var(--ease-out); }
 #toast button:active { transform: scale(.95); }
+#toast .toast-extra { background: var(--gold); color: #2a1d02; }
+
+/* first out: the quick picker, and the "not recorded" marks in lists and stats */
+.first-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.first.nr { color: var(--label-2); font-style: italic; }
+.nr { color: var(--label-2); font-size: .85em; font-weight: 600; white-space: nowrap; }
+.tile small.nr { display: block; margin-top: 2px; font-size: 12px; }
+.nr-legend { margin: 8px 0 0; }
 
 /* ---------- confetti ---------- */
 .confetti { position: fixed; inset: 0; z-index: 40; pointer-events: none; overflow: hidden; }

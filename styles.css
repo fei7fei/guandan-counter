@@ -165,6 +165,16 @@ h2 { font-size: 20px; font-weight: 700; margin-bottom: 10px; }
 }
 .bar .icon-btn { width: 36px; padding: 0; letter-spacing: 1px; font-size: 13px; }
 .sound-btn span { font-size: 15px; color: var(--accent); }
+.help-btn { padding: 0; width: 36px; font-size: 17px; font-weight: 700; color: var(--accent); }
+
+/* how to play: grouped sections, like iOS Settings */
+.rules-body { display: flex; flex-direction: column; gap: 10px; }
+.rules-sec { background: var(--cell); border-radius: 16px; padding: 12px 16px; }
+.rules-sec h3 { font-size: 13px; font-weight: 600; color: var(--label-2); margin: 0 0 6px; }
+.rules-sec ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+.rules-sec li { font-size: 15px; line-height: 1.45; }
+.rules-sec li::marker { color: var(--label-2); }
+.rules-sec b { font-weight: 700; }
 .sound-btn.off span { color: var(--label-2); text-decoration: line-through; }
 .sound-btn:active, .bar .icon-btn:active { transform: scale(.94); background: var(--fill-2); }
 .icon-btn { width: 44px; height: 44px; border-radius: 22px; font-size: 14px; color: var(--label-2); transition: transform 140ms var(--ease-out); }
@@ -359,6 +369,7 @@ h2 { font-size: 20px; font-weight: 700; margin-bottom: 10px; }
 .team.tap:active { transform: scale(.97); }
 .team.tap:active .pcard-wrap { transform: translateY(3px); }
 .tap-hint { margin: 0; }
+.tap-inline { display: none; }
 .team.champ { border-color: var(--gold); background: rgba(242, 196, 92, .14); }
 
 /* ---------- 转蛋: money on the felt ---------- */
@@ -993,11 +1004,17 @@ tr[data-action]:active td { background: var(--fill); }
     flex: 1; min-height: 0; align-items: center; gap: 24px;
     padding: 0; border-radius: 0; background: none; box-shadow: none;
   }
-  .board > .teams .team { padding: 6px 10px; }
+  .board > .teams .team { padding: 4px 10px; }
+  .board > .teams .team-head, .board > .teams .team-players { display: inline-block; min-height: 0; }
   .board > .teams .team-head { font-size: 20px; }
-  .board > .teams .team-meta { position: absolute; top: 8px; right: 10px; min-height: 0; }
-  .board > .teams .pcard-wrap { --w: min(calc((100dvh - 150px) * 5 / 7), 30vw); margin: 6px auto 2px; }
-  .board > .tap-hint { flex: none; color: var(--on-felt-muted); }
+  .board > .teams .team-players::before { content: "·"; margin: 0 6px; }
+  /* badges sit on the card's bottom edge, clear of the names */
+  .board > .teams .team-meta { position: absolute; left: 0; right: 0; bottom: -6px; min-height: 0; z-index: 1; }
+  .board > .teams .pcard-wrap { --w: min(calc((100dvh - 104px) * 5 / 7), 36vw); margin: 4px auto 0; }
+  /* before the first hand, the "tap their card" hint rides in the status line */
+  .board > .tap-hint { display: none; }
+  .play-grid.done .board > .teams .pcard-wrap { --w: min(calc((100dvh - 172px) * 5 / 7), 36vw); }
+  .board > .status .tap-inline { display: inline; color: var(--on-felt-muted); font-weight: 600; }
   .board > .money-board { align-items: stretch; padding: 4px 0; }
   .board > .money-board .money-team { justify-content: center; gap: 10px; padding: 10px; }
   .board > .money-board .team-head { font-size: 20px; }
@@ -1024,10 +1041,10 @@ tr[data-action]:active td { background: var(--fill); }
   .board > .teams .team { padding: 14px 16px; border-radius: 24px; }
   .board > .teams .team-head { font-size: 30px; }
   .board > .teams .team-players { font-size: 21px; }
-  .board > .teams .team-meta { top: 16px; right: 18px; }
+  .board > .teams .team-meta { bottom: -10px; }
   .board > .teams .badge { font-size: 17px; padding: 6px 14px; border-radius: 16px; }
-  .board > .teams .pcard-wrap { --w: min(calc((100dvh - 230px) * 5 / 7), 34vw); margin: 12px auto 4px; }
-  .board > .tap-hint { font-size: 20px; }
+  .board > .teams .pcard-wrap { --w: min(calc((100dvh - 170px) * 5 / 7), 40vw); margin: 10px auto 0; }
+  .play-grid.done .board > .teams .pcard-wrap { --w: min(calc((100dvh - 290px) * 5 / 7), 40vw); }
   .board > .money-board { gap: 40px; }
   .board > .money-board .money-team { gap: 16px; padding: 18px; border-radius: 24px; }
   .board > .money-board .team-head { font-size: 30px; }

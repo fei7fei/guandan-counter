@@ -52,6 +52,66 @@ const STRINGS = {
     backTo2: tm => `${tm} back to 2`,
     outFirst: name => `${name} out first`,
     tapToFix: 'Tap any hand to fix it.',
+    rulesAria: 'How to play',
+    gotIt: 'Got it',
+    rulesTitle: m => (m === 'zhuan' ? 'How to play Zhuandan' : 'How to play Guandan'),
+    rulesGuandan: [
+      { h: 'The table', items: [
+        'Four players in two teams. Partners sit across from each other.',
+        'Two full decks with all four jokers, 108 cards. Everyone gets 27.',
+      ] },
+      { h: 'Levels and the wild card', items: [
+        'Both teams start at <b>2</b> and climb toward <b>A</b>.',
+        'Each hand is played at the level of the team that won the last one.',
+        'The level card ranks just under the jokers, above the A.',
+        'The <b>♥ of the level rank is wild</b> (逢人配): when playing 7s, 7♥ stands in for any card except a joker.',
+      ] },
+      { h: 'Card order', items: [
+        'Red joker › black joker › level card › A › K › Q › J › 10 … 3 › 2. Suits don’t matter, except in straight flushes.',
+      ] },
+      { h: 'What you can play', items: [
+        'Single, pair, three of a kind, full house (3 + 2).',
+        'Straight of exactly 5, three pairs in a row, two triples in a row.',
+        'Beat a play with the same kind and the same number of cards, but higher. Or pass.',
+      ] },
+      { h: 'Bombs', items: [
+        'A bomb beats any normal play. Weakest to strongest: 4 of a kind › 5 of a kind › straight flush › 6, 7, 8 of a kind › <b>all four jokers</b>.',
+      ] },
+      { h: 'Scoring a hand', items: [
+        'The first player out wins the hand for their team. Their partner’s finish decides the climb:',
+        'Partner 2nd: <b>+3</b> · partner 3rd: <b>+2</b> · partner last: <b>+1</b>.',
+        'In the app: tap the winning team’s card, then +1, +2 or +3.',
+      ] },
+      { h: 'Tribute', items: [
+        'Before each new hand, the last player out gives their highest card to the first player out and gets a low card back. After a 1-2 finish, both losers pay.',
+        'No tribute if the losing side holds both red jokers.',
+      ] },
+      { h: 'Winning the game', items: [
+        'Reach <b>A</b>, then win a hand at A with your partner finishing 2nd or 3rd.',
+        'By default a team gets 3 tries at A, then drops back to 2. Change it in house rules.',
+        'Win without the other team taking a single hand: <b>Spring!</b> 🌸',
+      ] },
+    ],
+    rulesZhuan: [
+      { h: 'Always on 2', items: [
+        'Same cards, plays and bombs as Guandan, but <b>every hand is played on 2</b>, so <b>♥2 is always wild</b>.',
+        'No levels to climb and no tribute.',
+        'Partners can change every hand. Many tables pair up whoever holds the two ♠3s.',
+      ] },
+      { h: 'Money every hand', items: [
+        'Agree on a base amount. The winning pair each collect, the losing pair each pay:',
+        'Partner 2nd: <b>3 × base</b> · partner 3rd: <b>2 × base</b> · partner last: <b>1 × base</b>.',
+      ] },
+      { h: 'Bombs', items: [
+        'Each bomb that counts <b>doubles</b> the hand. <b>All four jokers ×4</b>.',
+        'Tables differ on which bombs count, so agree before you start.',
+      ] },
+      { h: 'In the app', items: [
+        'Tap <b>💣 Bomb!</b> each time one lands, so nobody forgets.',
+        'When the hand ends, tap who won, then ×1, ×2 or ×3.',
+        '<b>Change partners</b> when the pairs switch. <b>Settle up</b> shows who pays whom.',
+      ] },
+    ],
     bombsThisHand: 'Bombs this hand',
     bombBtn: 'Bomb!',
     paysX: x => `Pays ×${x}`,
@@ -308,6 +368,66 @@ const STRINGS = {
     backTo2: tm => `${tm}打回2`,
     outFirst: name => `${name}头游`,
     tapToFix: '点任意一局就能修改。',
+    rulesAria: '玩法说明',
+    gotIt: '知道了',
+    rulesTitle: m => (m === 'zhuan' ? '转蛋玩法' : '掼蛋玩法'),
+    rulesGuandan: [
+      { h: '牌桌', items: [
+        '四人两队，搭档面对面坐。',
+        '两副牌加四张王，共108张，每人27张。',
+      ] },
+      { h: '级牌和逢人配', items: [
+        '两队都从<b>2</b>开始，一路打到<b>A</b>。',
+        '每局打上一局赢家那队的级。',
+        '级牌只比大小王小，比A还大。',
+        '<b>红桃级牌是逢人配</b>：打7时，红桃7可以当任何牌用，王除外。',
+      ] },
+      { h: '牌的大小', items: [
+        '大王 › 小王 › 级牌 › A › K › Q › J › 10 … 3 › 2。花色不分大小，同花顺除外。',
+      ] },
+      { h: '能出的牌型', items: [
+        '单张、对子、三张、三带二。',
+        '五张顺子、三连对（木板）、两个连着的三张（钢板）。',
+        '要压同样牌型、同样张数、更大的牌，压不了就过。',
+      ] },
+      { h: '炸弹', items: [
+        '炸弹能压任何普通牌型。从小到大：四张 › 五张 › 同花顺 › 六张、七张、八张 › <b>四个王（天王炸）</b>。',
+      ] },
+      { h: '一局怎么算', items: [
+        '头游那队赢这一局，升几级看搭档第几个走：',
+        '搭档二游：<b>升3级</b> · 三游：<b>升2级</b> · 末游：<b>升1级</b>。',
+        '在App里：点赢的那队的牌，再点 +1、+2 或 +3。',
+      ] },
+      { h: '进贡', items: [
+        '新一局开始前，末游把最大的牌给头游，头游还一张小牌。双下时两人都要进贡。',
+        '输的一方有两个大王可以抗贡。',
+      ] },
+      { h: '怎么赢', items: [
+        '打到<b>A</b>后，还要在A这一局赢下来，搭档二游或三游才算过。',
+        '默认在A上有3次机会，都没过就回到2。可以在房规里改。',
+        '对方一局都没赢就结束：<b>春天！</b>🌸',
+      ] },
+    ],
+    rulesZhuan: [
+      { h: '永远打2', items: [
+        '牌、牌型和炸弹都跟掼蛋一样，但<b>每一局都打2</b>，所以<b>红桃2永远是逢人配</b>。',
+        '不升级，也不进贡。',
+        '每局都可以换搭档。很多桌是拿到两张黑桃3的人一队。',
+      ] },
+      { h: '每局算钱', items: [
+        '先商量好底分。赢的两人各收，输的两人各付：',
+        '搭档二游：<b>3倍底分</b> · 三游：<b>2倍</b> · 末游：<b>1倍</b>。',
+      ] },
+      { h: '炸弹', items: [
+        '每个算数的炸弹让这一局<b>翻倍</b>，<b>四个王 ×4</b>。',
+        '哪些炸弹算数各桌不同，开打前先说好。',
+      ] },
+      { h: '在App里', items: [
+        '每出一个炸弹就点一下<b>💣 炸！</b>，打完不用再记。',
+        '一局打完，点哪队赢，再点 ×1、×2 或 ×3。',
+        '换搭档时点<b>换搭档</b>，<b>结算</b>会算出谁该付给谁。',
+      ] },
+    ],
     bombsThisHand: '本局炸弹',
     bombBtn: '炸！',
     paysX: x => `翻 ×${x}`,

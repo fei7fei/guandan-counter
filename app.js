@@ -5,7 +5,7 @@ const RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
 const ACE = 12;
 const BUMP = { 2: 3, 3: 2, 4: 1 };                 // partner's finishing place -> levels gained
 const STEP_PLACE = { 3: 2, 2: 3, 1: 4 };           // levels gained -> partner's finishing place
-const SUIT = ['♥', '♠'];
+const SUIT = ['♦', '♠'];   // red team ♦, so its card never looks like the wild ♥
 const STORE_KEY = 'guandan-counter/v1';
 const MUTE_KEY = 'guandan-counter/muted';
 const LANG_KEY = 'guandan-counter/lang';
@@ -562,7 +562,8 @@ function header(title, { back, right = '', modeSwitch = false } = {}) {
   const left = back ? `<button class="back" data-action="${back}">${tr('back')}</button>`
     : modeSwitch ? `<button class="sound-btn mode-btn" data-action="pick-mode" aria-label="${tr('switchMode')}">${tr(ui.mode === 'zhuan' ? 'modeZhuan' : 'modeNormal')} <span>⇄</span></button>` : '';
   const tools = back ? right
-    : `<button class="sound-btn ${sound.muted ? 'off' : ''}" data-action="toggle-sound" aria-label="${tr(sound.muted ? 'soundOn' : 'soundOff')}"><span>♪</span>${tr(sound.muted ? 'off' : 'on')}</button>`
+    : `<button class="sound-btn help-btn" data-action="rules-open" aria-label="${tr('rulesAria')}">?</button>`
+      + `<button class="sound-btn ${sound.muted ? 'off' : ''}" data-action="toggle-sound" aria-label="${tr(sound.muted ? 'soundOn' : 'soundOff')}"><span>♪</span>${tr(sound.muted ? 'off' : 'on')}</button>`
       + `<button class="sound-btn lang-btn" data-action="toggle-lang" aria-label="${tr('langAria')}">${tr('langBtn')}</button>${right}`;
   return `<header class="bar">
     <div class="bar-row"><div class="bar-left">${left}</div><div class="bar-right">${tools}</div></div>
@@ -605,6 +606,7 @@ function renderPlay() {
          <span class="deal-no">${tr('dealNo', dealNo)}</span>
          <span class="playing">${tr('playing', pl, st.declarer !== null ? teamName(st.declarer) : null)}</span>
          <span class="wild">${tr('wild', `<span class="wild-card">${pl}<i>♥</i></span>`)}</span>
+         ${g.deals.length ? '' : `<span class="tap-inline">${tr('tapCardToWin')}</span>`}
        </div>`;
 
   const record = done
@@ -617,7 +619,7 @@ function renderPlay() {
 
   return `
     ${header(tr('appTitle'), { modeSwitch: true, right: `<button class="icon-btn" data-action="game-menu" aria-label="${tr('gameOptions')}">•••</button>` })}
-    <div class="play-grid">
+    <div class="play-grid ${done ? 'done' : ''}">
       <section class="board">
         ${status}
         ${g.guest ? `<p class="hint center guest-note">${tr('guestBadge')}</p>` : ''}
@@ -1044,7 +1046,7 @@ function renderStats() {
           <span>${tr('pctOfGames', pct(leader.wins, leader.games), leader.games)}</span>
         </div>
         ${bestPair ? `<div class="podium-card">
-          <span class="crown">♥♠</span>
+          <span class="crown">♦♠</span>
           <span class="muted">${tr('bestPair')}</span>
           <b>${esc(teamNames(bestPair.ids))}</b>
           <span>${tr('pctOfGames', pct(bestPair.wins, bestPair.games), bestPair.games)}</span>
@@ -1102,7 +1104,7 @@ function renderZhuanStats(seg) {
           <span class="money pos">${fmtNet(leader.net)}</span>
         </div>
         ${bestPair ? `<div class="podium-card">
-          <span class="crown">♥♠</span>
+          <span class="crown">♦♠</span>
           <span class="muted">${tr('bestPair')}</span>
           <b>${esc(teamNames(bestPair.ids))}</b>
           <span class="money pos">${fmtNet(bestPair.net)}</span>
@@ -1166,7 +1168,7 @@ function renderPlayers() {
         <input id="new-player" name="name" placeholder="${tr('addPlayerPh')}" autocomplete="off" maxlength="30" required>
         <button class="btn gold">${tr('add')}</button>
       </form>
-      ${active.length ? `<ul class="list">${active.map(row).join('')}</ul>` : `<p class="empty big-empty"><span class="empty-suits">♥ ♠</span>${tr('emptyTable')}</p>`}
+      ${active.length ? `<ul class="list">${active.map(row).join('')}</ul>` : `<p class="empty big-empty"><span class="empty-suits">♦ ♠</span>${tr('emptyTable')}</p>`}
       ${archived.length ? `<h3 class="sub">${tr('hiddenPlayers')}</h3><ul class="list dim">${archived.map(row).join('')}</ul>` : ''}
 
       <section class="panel backup">
@@ -1291,7 +1293,7 @@ function renderSheet() {
     return;
   }
   delete root.dataset.leaving;
-  const body = { deal: sheetDeal, menu: sheetMenu, adjust: sheetAdjust, pick: sheetPick, confirm: sheetConfirm, rename: sheetRename, seatname: sheetSeatName, pairing: sheetPairing, settle: sheetSettle }[s.type]();
+  const body = { deal: sheetDeal, menu: sheetMenu, adjust: sheetAdjust, pick: sheetPick, confirm: sheetConfirm, rename: sheetRename, seatname: sheetSeatName, rules: sheetRules, pairing: sheetPairing, settle: sheetSettle }[s.type]();
   root.innerHTML = `
     <div class="backdrop ${ui.sheetIsNew ? 'enter' : ''}" data-action="close-sheet"></div>
     <div class="sheet ${ui.sheetIsNew ? 'enter' : ''}" role="dialog" aria-modal="true">
@@ -1469,6 +1471,20 @@ function sheetRename() {
       <button class="btn ink">${tr('save')}</button>
     </form>
     <button class="btn subtle full" data-action="close-sheet">${tr('cancel')}</button>`;
+}
+
+// How to play, for whichever mode is picked (掼蛋 or 转蛋).
+function sheetRules() {
+  const sections = tr(ui.mode === 'zhuan' ? 'rulesZhuan' : 'rulesGuandan');
+  return `
+    <h2>${tr('rulesTitle', ui.mode)}</h2>
+    <div class="rules-body">
+      ${sections.map(sec => `<section class="rules-sec">
+        <h3>${sec.h}</h3>
+        <ul>${sec.items.map(it => `<li>${it}</li>`).join('')}</ul>
+      </section>`).join('')}
+    </div>
+    <button class="btn ink full" data-action="close-sheet">${tr('gotIt')}</button>`;
 }
 
 function sheetConfirm() {
@@ -1820,7 +1836,7 @@ const ACTION_SOUND = {
   'shuffle-teams': 'flip', 'swap-teams': 'flip', 'pick-player': 'pop',
   'zdeal-save': null, 'pairing-open': 'open', 'settle-open': 'open', 'pairing-pick': 'flip', 'finish-zhuan': 'chip',
   'jokers-toggle': 'pop', 'pick-mode': 'open', 'choose-mode': 'chip',
-  'live-bomb': null, 'live-jokers': null, 'rename-seat': 'open',
+  'live-bomb': null, 'live-jokers': null, 'rename-seat': 'open', 'rules-open': 'open',
   'toggle-sound': null, 'toggle-lang': 'flip',
 };
 
@@ -2157,6 +2173,7 @@ const actions = {
 
   // mode: 掼蛋 or 转蛋
   'pick-mode'() { showModePicker(); },
+  'rules-open'() { openSheet({ type: 'rules' }); },
   'pick-guest'({ guest }) {
     const on = guest === '1';
     setGuestPref(on);

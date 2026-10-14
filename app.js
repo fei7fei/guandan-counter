@@ -66,6 +66,64 @@ function save() {
   } catch (e) {
     toast(tr('storageFail'));
   }
+  clearTimeout(snapTimer);
+  snapTimer = setTimeout(() => copies.snap(), 1500);
+}
+let snapTimer = 0;
+
+// Saved copies on this device: a second place for the stats, in the browser's IndexedDB,
+// written every few hours of play (and whenever the number of games changes). It's what
+// "Restore" lists on the Players tab, and what the app offers back if its main storage
+// ever comes up empty. A backup file (Export) is still the copy that survives anything.
+const copies = (() => {
+  const KEEP = 12, GAP = 3 * 3600e3;
+  let dbp = null;
+  const open = () => (dbp ??= new Promise((res, rej) => {
+    const r = indexedDB.open('guandan-counter', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('copies', { keyPath: 'at' });
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  }));
+  const run = async (mode, fn) => {
+    const db = await open();
+    return new Promise((res, rej) => {
+      const t = db.transaction('copies', mode);
+      const req = fn(t.objectStore('copies'));
+      t.oncomplete = () => res(req?.result);
+      t.onerror = () => rej(t.error);
+    });
+  };
+  const size = d => ({ players: d.players.filter(p => !p.deleted).length, games: d.games.filter(g => !g.guest).length });
+  return {
+    async list() {
+      try { return ((await run('readonly', s => s.getAll())) || []).sort((a, b) => b.at - a.at); } catch (e) { return []; }
+    },
+    async snap() {
+      try {
+        const now = size(data);
+        if (!now.players && !now.games) return;
+        const all = await this.list();
+        const last = all[0];
+        if (last && Date.now() - last.at < GAP && last.games === now.games && last.players === now.players) return;
+        await run('readwrite', s => s.put({ at: Date.now(), json: JSON.stringify(data), ...now }));
+        const extra = all.slice(KEEP - 1);
+        if (extra.length) await run('readwrite', s => { extra.forEach(c => s.delete(c.at)); });
+      } catch (e) { /* storage unavailable */ }
+    },
+  };
+})();
+// ask the browser to keep this app's storage even when the device runs low on space
+try { navigator.storage?.persist?.(); } catch (e) { /* ignore */ }
+
+// Backup files: when the last one was saved, and how many games ago.
+const EXPORT_KEY = 'guandan-counter/last-export';
+function lastExport() {
+  try { return JSON.parse(localStorage.getItem(EXPORT_KEY)) || null; } catch (e) { return null; }
+}
+const trackedGames = () => data.games.filter(g => !g.guest).length;
+function gamesSinceExport() {
+  const e = lastExport();
+  return trackedGames() - (e?.games ?? 0);
 }
 
 let data = load();
@@ -513,7 +571,7 @@ function computeZhuanStats(since = 0) {
         }
       });
       if (d.firstOut && players[d.firstOut]) players[d.firstOut].firstOuts++;
-      else if (!d.firstOut) for (const id of d.teams[d.winner]) players[id].firstUnknown++;
+      else if (!d.firstOut && tracksOut(g)) for (const id of d.teams[d.winner]) players[id].firstUnknown++;
     }
   }
   return { players, pairs };
@@ -570,7 +628,7 @@ function computeStats(since = 0) {
     for (const d of deals) {
       if (d.firstOut && players[d.firstOut]) players[d.firstOut].firstOuts++;
       // a won hand with no first out recorded: either winner might have gone out first
-      else if (!d.firstOut) for (const id of g.teams[d.winner]) players[id].firstUnknown++;
+      else if (!d.firstOut && tracksOut(g)) for (const id of g.teams[d.winner]) players[id].firstUnknown++;
     }
   }
   return { players, pairs, h2h };
@@ -588,7 +646,47 @@ function render() {
   document.querySelectorAll('#tabs [data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === ui.tab));
   renderSheet();
   afterRender();
+  wireCharts();
+  keepAwake();
+  if (ui.tab === 'players' && !ui.playerId) fillCopies();
 }
+
+// Keep the screen on while a game is on the Play screen, so the phone on the table doesn't
+// dim between hands. The browser drops the lock when the app is hidden; it's asked for
+// again when the app comes back.
+let wakeLock = null, wakeAsking = false;
+async function keepAwake() {
+  const want = document.visibilityState === 'visible' && ui.tab === 'play' && Boolean(activeGame());
+  try {
+    if (want && !wakeLock && !wakeAsking && 'wakeLock' in navigator) {
+      wakeAsking = true;
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { wakeLock = null; });
+    } else if (!want && wakeLock) {
+      const l = wakeLock;
+      wakeLock = null;
+      await l.release();
+    }
+  } catch (e) { wakeLock = null; /* not allowed right now (low battery mode and the like) */ }
+  wakeAsking = false;
+}
+document.addEventListener('visibilitychange', keepAwake);
+
+// If the app starts with nothing at all but this device still has a saved copy, offer it.
+async function offerLostCopy() {
+  if (data.players.length || data.games.length) return;
+  const c = (await copies.list())[0];
+  if (!c || (!c.players && !c.games)) return;
+  openSheet({
+    type: 'confirm',
+    title: tr('lostDataTitle'),
+    body: tr('lostDataBody', `${fmtDate(c.at)} ${fmtTime(c.at)}`, c.games),
+    label: tr('restore'),
+    run: () => mutate(tr('restored'), () => { data = JSON.parse(c.json); }),
+  });
+}
+setTimeout(offerLostCopy, 1200);
+setTimeout(() => copies.snap(), 4000); // and a copy at start, if the last one is old
 
 // iOS-style navigation: a slim toolbar row (Back on the leading edge, tools on the trailing
 // edge), then a large left-aligned title.
@@ -641,6 +739,7 @@ function renderPlay() {
          <span class="playing">${tr('playing', pl, st.declarer !== null ? teamName(st.declarer) : null)}</span>
          <span class="wild">${tr('wild', `<span class="wild-card">${pl}<i>♥</i></span>`)}</span>
          ${g.deals.length ? '' : `<span class="tap-inline">${tr('tapCardToWin')}</span>`}
+         ${tributeLine(g)}
        </div>`;
 
   const record = done
@@ -671,6 +770,27 @@ function renderPlay() {
 
 // Only shown sideways, where the full-screen table hides the header and its ••• button.
 const tableMenuBtn = () => `<button class="table-menu" data-action="game-menu" aria-label="${tr('tableMenu')}">•••</button>`;
+
+// Before the next hand: who gives tribute to whom, from the last hand. The last player out
+// pays the first player out (even when they're partners, after a 1-4 finish); after a
+// 1-2 finish both losers pay and the bigger card goes to the first player out. Names when
+// the order was recorded, otherwise "Blue's last out" and the like.
+function tributeLine(g) {
+  const d = g.deals[g.deals.length - 1];
+  if (!d || d.type === 'adjust') return '';
+  const w = d.winner, l = 1 - w, step = BUMP[d.place];
+  const name = id => esc(pname(id));
+  const first = d.firstOut ? name(d.firstOut) : tr('firstOutOf', teamName(w));
+  let text;
+  if (step === 3) text = tr('tributeDouble', esc(teamNames(g.teams[l])), first);
+  else {
+    const last = d.order?.length === 4 ? name(d.order[3])
+      : step === 1 && d.firstOut ? name(g.teams[w].find(id => id !== d.firstOut))
+      : tr('lastOutOf', teamName(step === 1 ? w : l));
+    text = tr('tributeSingle', last, first);
+  }
+  return `<span class="tribute"><b>${tr('tributeLabel')}</b> ${text}<small>${tr('antiTribute')}</small></span>`;
+}
 
 // ----- Play: 转蛋 -----
 function renderPlayZhuan(g) {
@@ -745,8 +865,9 @@ function bombLive(g) {
 
 // Who went out first, or (in a game that counts for stats) a note that nobody recorded it.
 function firstTag(g, d) {
+  if (d.order?.length === 4) return `<span class="first">${tr('outFirstLast', esc(pname(d.order[0])), esc(pname(d.order[3])))}</span>`;
   if (d.firstOut) return `<span class="first">${tr('outFirst', esc(pname(d.firstOut)))}</span>`;
-  return g.guest ? '' : `<span class="first nr">${tr('firstNotRec')}</span>`;
+  return g.guest || !tracksOut(g) ? '' : `<span class="first nr">${tr('firstNotRec')}</span>`;
 }
 
 function zhuanLog(g) {
@@ -824,10 +945,22 @@ function newDraft(teams) {
     start: { levels: [0, 0], declarer: null },
     advanced: false,
     guest: !teams && guestPref(),        // quick game (the default): typed names, nothing saved
+    trackOut: trackOutPref(),            // record who went out, in order
     guestNames: [['', ''], ['', '']],
     ...zhuanPrefs(),                     // 转蛋 stake and currency
   };
 }
+
+// Record who went out (finishing order): a setting per game, remembered for the next one.
+// Off means the hand sheet is just +1 +2 +3 (or ×1 ×2 ×3), with no first-out questions.
+const ORDER_KEY = 'guandan-counter/track-out';
+function trackOutPref() {
+  try { return localStorage.getItem(ORDER_KEY) !== '0'; } catch (e) { return true; }
+}
+function setTrackOutPref(on) {
+  try { localStorage.setItem(ORDER_KEY, on ? '1' : '0'); } catch (e) { /* ignore */ }
+}
+const tracksOut = g => g.trackOut !== false; // games from before the setting count as on
 
 // Quick game or tracked: remembered from the mode picker or the setup screen.
 const GUEST_KEY = 'guandan-counter/quick';
@@ -874,6 +1007,15 @@ function renderNewGame() {
     </div>`;
   ui.fanDealt = true;
 
+  const trackRule = `
+        <div class="rule">
+          <div><b>${tr('trackOutTitle')}</b><p class="muted">${tr('trackOutDesc')}</p></div>
+          <div class="seg">
+            <button class="${d.trackOut ? 'on' : ''}" data-action="track-out" data-v="1">${tr('on')}</button>
+            <button class="${d.trackOut ? '' : 'on'}" data-action="track-out" data-v="0">${tr('off')}</button>
+          </div>
+        </div>`;
+
   // 转蛋 has no level rules; its setup is the stake and the currency instead
   const stakes = `
       <div class="panel rules">
@@ -891,6 +1033,7 @@ function renderNewGame() {
             ${CURRENCIES.map(c => `<button class="${d.currency === c ? 'on' : ''}" data-action="currency-pick" data-c="${c}">${tr('currencyName')[c || 'pts']}</button>`).join('')}
           </div>
         </div>
+        ${trackRule}
       </div>`;
 
   const startBtn = `<button class="btn gold big full" data-action="start-game" ${ready && (!unequal || d.start.declarer !== null) ? '' : 'disabled'}>${tr('letsPlay')}</button>`;
@@ -942,6 +1085,7 @@ function renderNewGame() {
             ${[0, 3].map(n => `<button class="${d.rules.aMaxFails === n ? 'on' : ''}" data-action="rule-fails" data-n="${n}">${n ? tr('tries', n) : tr('unlimited')}</button>`).join('')}
           </div>
         </div>
+        ${trackRule}
         <button class="link" data-action="toggle-advanced">${d.advanced ? '▾' : '▸'} ${tr('inProgress')}</button>
         ${d.advanced ? `
           <div class="rule">
@@ -985,7 +1129,9 @@ function renderHistory() {
       <button class="icon-btn gr-del" data-action="delete-game" data-id="${g.id}" aria-label="${tr('deleteGame')}">✕</button>
     </li>`;
   });
-  return `${header(tr('history'))}<div class="narrow"><ul class="list">${items.join('')}</ul></div>`;
+  const due = gamesSinceExport();
+  const nudge = due >= 5 ? `<div class="backup-nudge"><span>${tr('backupNudge', due)}</span><button class="btn" data-action="export">${tr('backupNow')}</button></div>` : '';
+  return `${header(tr('history'))}<div class="narrow">${nudge}<ul class="list">${items.join('')}</ul></div>`;
 }
 
 function zhuanHistoryRow(g) {
@@ -1031,6 +1177,7 @@ function renderZhuanDetail(g) {
         <button class="btn" data-action="share-game" data-id="${g.id}">${tr('share')}</button>
         <button class="btn danger" data-action="delete-game" data-id="${g.id}">${tr('deleteGame')}</button>
       </div>
+      ${moneyChart(g)}
       <section class="panel log"><h2>${tr('hands')}</h2>${zhuanLog(g)}</section>
     </div>`;
 }
@@ -1051,8 +1198,148 @@ function renderGameDetail(g) {
         <button class="btn" data-action="share-game" data-id="${g.id}">${tr(st.winner !== null ? 'shareResult' : 'share')}</button>
         <button class="btn danger" data-action="delete-game" data-id="${g.id}">${tr('deleteGame')}</button>
       </div>
+      ${levelChart(g, st)}
       <section class="panel log"><h2>${tr('hands')}</h2>${dealLog(g, st)}</section>
     </div>`;
+}
+
+// ----- Charts -----
+// Small line charts as inline SVG: 2px lines in the team or seat color, hairline grid,
+// a legend, values at the line ends, and a tap or hover that reads out every series at
+// that point. Text stays in text colors; only the marks carry the series color.
+const CH = { W: 340, H: 170, L: 34, R: 44, T: 10, B: 24 };
+
+function lineChart({ title, series, xLabels, yTicks, fmt }) {
+  const { W, H, L, R, T, B } = CH;
+  const n = Math.max(...series.map(s => s.values.length));
+  if (n < 2) return '';
+  const all = series.flatMap(s => s.values).concat(yTicks.map(t => t.v));
+  const lo = Math.min(...all), hi = Math.max(...all);
+  const x = i => L + (i / (n - 1)) * (W - L - R);
+  const y = v => T + (hi === lo ? 0.5 : 1 - (v - lo) / (hi - lo)) * (H - T - B);
+  const grid = yTicks.map(t => `<line class="ch-grid ${t.v === 0 && t.zero ? 'zero' : ''}" x1="${L}" x2="${W - R}" y1="${y(t.v)}" y2="${y(t.v)}"/><text class="ch-yl" x="${L - 6}" y="${y(t.v)}">${t.label}</text>`).join('');
+  const xl = [0, n - 1].map(i => `<text class="ch-xl" x="${x(i)}" y="${H - 6}" text-anchor="${i ? 'end' : 'start'}">${xLabels(i)}</text>`).join('');
+  const lines = series.map(s => `<polyline class="ch-line" style="stroke:${s.color}" points="${s.values.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ')}"/>`).join('');
+  // end dots, and one value label per distinct end (series that finish level share it)
+  const ends = [];
+  series.forEach(s => {
+    const v = s.values[s.values.length - 1];
+    const at = ends.find(e => e.v === v);
+    if (at) at.n++; else ends.push({ v, n: 1 });
+  });
+  const dots = series.map(s => `<circle class="ch-dot" cx="${x(s.values.length - 1)}" cy="${y(s.values[s.values.length - 1])}" r="4" style="fill:${s.color}"/>`).join('');
+  let lastY = -99;
+  const endLabels = ends.sort((a, b) => b.v - a.v).map(e => {
+    const yy = y(e.v);
+    if (Math.abs(yy - lastY) < 11) return '';
+    lastY = yy;
+    return `<text class="ch-end" x="${W - R + 8}" y="${yy}">${fmt(e.v)}</text>`;
+  }).join('');
+  const xs = Array.from({ length: n }, (_, i) => +x(i).toFixed(1));
+  const tips = xs.map((_, i) => `<b>${xLabels(i)}</b>${series.map(s => `<span><i style="background:${s.color}"></i>${esc(s.name)}<em>${fmt(s.values[i])}</em></span>`).join('')}`);
+  return `<section class="panel chart" data-xs="${esc(JSON.stringify(xs))}" data-tips="${esc(JSON.stringify(tips))}">
+    <h2>${title}</h2>
+    ${series.length > 1 ? `<div class="ch-legend">${series.map(s => `<span><i style="background:${s.color}"></i>${esc(s.name)}</span>`).join('')}</div>` : ''}
+    <div class="ch-plot">
+      <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(title)}">
+        ${grid}${xl}${lines}${dots}${endLabels}
+        <line class="ch-cross" x1="0" x2="0" y1="${T}" y2="${H - B}"/>
+      </svg>
+      <div class="ch-tip" hidden></div>
+    </div>
+  </section>`;
+}
+
+// Tap or hover a chart: a crosshair at the nearest hand, and every value there.
+function wireCharts() {
+  document.querySelectorAll('.chart:not([data-wired])').forEach(c => {
+    c.dataset.wired = '1';
+    const svg = c.querySelector('svg'), tip = c.querySelector('.ch-tip'), cross = c.querySelector('.ch-cross');
+    const xs = JSON.parse(c.dataset.xs), tips = JSON.parse(c.dataset.tips);
+    const show = e => {
+      const r = svg.getBoundingClientRect();
+      const px = ((e.clientX - r.left) / r.width) * CH.W;
+      let i = 0;
+      xs.forEach((v, k) => { if (Math.abs(v - px) < Math.abs(xs[i] - px)) i = k; });
+      cross.setAttribute('x1', xs[i]);
+      cross.setAttribute('x2', xs[i]);
+      cross.classList.add('on');
+      tip.innerHTML = tips[i];
+      tip.hidden = false;
+      tip.style.left = `${Math.min(80, Math.max(20, (xs[i] / CH.W) * 100))}%`;
+    };
+    svg.addEventListener('pointermove', show);
+    svg.addEventListener('pointerdown', show);
+    svg.addEventListener('pointerleave', () => { cross.classList.remove('on'); tip.hidden = true; });
+  });
+}
+
+// 掼蛋: each team's level after every hand, 2 to A
+function levelChart(g, st) {
+  const vals = [0, 1].map(t => [g.start.levels[t]]);
+  st.steps.forEach(step => { if (!step.ignored && step.after) [0, 1].forEach(t => vals[t].push(step.after[t])); });
+  return lineChart({
+    title: tr('chartLevels'),
+    series: [0, 1].map(t => ({ name: teamName(t), color: `var(--team-${t})`, values: vals[t] })),
+    xLabels: i => (i ? tr('handNo', i) : tr('chartStart')),
+    yTicks: [0, 3, 6, 9, 12].map(v => ({ v, label: rank(v) })),
+    fmt: v => rank(v),
+  });
+}
+
+// Round, readable ticks for money: steps of 1, 2 or 5 × 10ⁿ covering the data and 0.
+function moneyTicks(values, cur) {
+  const lo = Math.min(0, ...values), hi = Math.max(0, ...values);
+  const raw = Math.max(1, hi - lo) / 3;
+  const p = 10 ** Math.floor(Math.log10(raw));
+  const step = [1, 2, 5, 10].map(k => k * p).find(s => s >= raw);
+  const ticks = [];
+  for (let v = Math.floor(lo / step) * step; v <= Math.ceil(hi / step) * step + 1e-9; v += step) {
+    const r = round2(v);
+    ticks.push({ v: r, label: (r < 0 ? '−' : '') + fmtMoney(r, cur, { sign: false }), zero: true });
+  }
+  return ticks;
+}
+
+// 转蛋: everyone's running total, hand by hand. Partners who never split share a line.
+function moneyChart(g) {
+  const run = Object.fromEntries(g.seats.map(id => [id, [0]]));
+  for (const d of g.deals) {
+    const amt = handAmount(g, d);
+    d.teams.forEach((team, t) => team.forEach(id => {
+      const a = run[id];
+      if (a) a.push(round2(a[a.length - 1] + (t === d.winner ? amt : -amt)));
+    }));
+  }
+  const series = g.seats.map((id, i) => ({ name: pname(id), color: `var(--seat-${i + 1})`, values: run[id] }));
+  return lineChart({
+    title: tr('chartMoney'),
+    series,
+    xLabels: i => (i ? tr('handNo', i) : tr('chartStart')),
+    yTicks: moneyTicks(series.flatMap(s => s.values), g.currency),
+    fmt: v => fmtMoney(v, g.currency),
+  });
+}
+
+// A player's 转蛋 net, game after game, in the currency they play most
+function netOverGamesChart(p) {
+  const games = data.games
+    .filter(g => isZhuan(g) && !g.guest && g.deals.length && g.seats.includes(p.id))
+    .sort((a, b) => a.createdAt - b.createdAt);
+  if (games.length < 2) return '';
+  const count = {};
+  games.forEach(g => { count[g.currency] = (count[g.currency] || 0) + 1; });
+  const cur = Object.keys(count).sort((a, b) => count[b] - count[a])[0];
+  const mine = games.filter(g => g.currency === cur);
+  const values = [0];
+  mine.forEach(g => values.push(round2(values[values.length - 1] + (zhuanTotals(g)[p.id] || 0))));
+  return lineChart({
+    title: tr('chartMoneyGames'),
+    series: [{ name: p.name, color: 'var(--seat-1)', values }],
+    xLabels: i => (i ? fmtDate(mine[i - 1].createdAt) : tr('chartStart')),
+    yTicks: moneyTicks(values, cur),
+    fmt: v => fmtMoney(v, cur),
+  });
 }
 
 // ----- Stats -----
@@ -1221,12 +1508,26 @@ function renderPlayers() {
       <section class="panel backup">
         <h2>${tr('backup')}</h2>
         <p class="muted">${tr('backupDesc')}</p>
+        <p class="backup-when ${gamesSinceExport() >= 5 ? 'due' : ''}">${lastExport() ? tr('lastBackupFile', fmtDate(lastExport().at)) : tr('neverBackedUp')}</p>
         <div class="actions-row">
           <button class="btn" data-action="export">${tr('exportBackup')}</button>
           <button class="btn" data-action="import">${tr('importBackup')}</button>
         </div>
+        <h3 class="sub">${tr('autoCopies')}</h3>
+        <p class="muted">${tr('autoCopiesDesc')}</p>
+        <ul class="copies" id="copies"><li class="muted">…</li></ul>
       </section>
     </div>`;
+}
+
+// Fill in the saved-copies list once the Players tab is on screen (IndexedDB is async).
+async function fillCopies() {
+  const el = document.getElementById('copies');
+  if (!el) return;
+  const all = await copies.list();
+  el.innerHTML = all.length
+    ? all.map(c => `<li><span><b>${fmtDate(c.at)} ${fmtTime(c.at)}</b><small>${tr('copyRow', c.players, c.games)}</small></span><button class="btn" data-action="copy-restore" data-at="${c.at}">${tr('restore')}</button></li>`).join('')
+    : `<li class="muted">${tr('noCopiesYet')}</li>`;
 }
 
 function renderPlayerDetail(p) {
@@ -1297,6 +1598,7 @@ function zhuanPlayerPanel(p) {
         <div class="tile"><span>${tr('tileGames')}</span><b>${s.games}</b></div>
         <div class="tile"><span>${tr('tileOutFirst')}</span><b>${s.firstOuts}</b>${s.firstUnknown ? `<small class="nr">${tr('notRecordedN', s.firstUnknown)}</small>` : ''}</div>
       </div>
+      ${netOverGamesChart(p)}
       <div class="table-wrap"><table>
         <thead><tr><th>${tr('withPartnerShort')}</th><th>${tr('thNet')}</th><th>${tr('thHandsWL')}</th><th>${tr('thWin')}</th></tr></thead>
         <tbody>${partners.map(r => `<tr data-action="open-player" data-id="${r.other}">
@@ -1363,9 +1665,7 @@ function sheetZhuanDeal() {
     <div class="seg big-seg">
       ${[0, 1].map(t => `<button class="t${t} ${w === t ? 'on' : ''}" data-action="deal-winner" data-team="${t}">${SUIT[t]} ${esc(teamNames(s.teams[t]))}</button>`).join('')}
     </div>` : wonTitle(w, esc(teamNames(s.teams[w])))}
-    <div class="chip-row">
-      ${s.teams[w].map(id => `<button class="chip ${s.firstOut === id ? 'on' : ''}" data-action="deal-first" data-id="${id}" aria-label="${tr('whoFirst')}">${tr('outFirstChip', esc(pname(id)))}</button>`).join('')}
-    </div>
+    ${tracksOut(g) ? orderPicker(s.order, s.teams, w) : ''}
     <div class="bomb-row">
       <span class="bomb-label">💣 ×2</span>
       <button class="mini-step" data-action="bomb-step" data-d="-1" ${s.bombs ? '' : 'disabled'} aria-label="${tr('fewerBombs')}">−</button>
@@ -1374,7 +1674,10 @@ function sheetZhuanDeal() {
       <button class="chip jokers ${s.jokers ? 'on' : ''}" data-action="jokers-toggle">${tr('jokersChip')}</button>
     </div>
     <div class="gain-btns">
-      ${[1, 2, 3].map(n => `<button class="gain-btn money-btn t${w} ${editing && s.mult === n ? 'on' : ''}" data-action="zdeal-save" data-mult="${n}">×${n}<small>${fmtMoney(amount(n), g.currency)}</small></button>`).join('')}
+      ${[1, 2, 3].map(n => {
+        const fixed = orderStep(s.order, s.teams, w);
+        return `<button class="gain-btn money-btn t${w} ${(fixed ? fixed === n : editing && s.mult === n) ? 'on' : ''}" data-action="zdeal-save" data-mult="${n}" ${fixed && fixed !== n ? 'disabled' : ''}>×${n}<small>${fmtMoney(amount(n), g.currency)}</small></button>`;
+      }).join('')}
     </div>
     ${editing ? `<button class="btn danger full" data-action="delete-deal">${tr('deleteHand')}</button>` : ''}
     <button class="btn subtle full" data-action="close-sheet">${tr('cancel')}</button>`;
@@ -1411,6 +1714,29 @@ function sheetSettle() {
 
 // A new hand opens for the team that was tapped; to pick the other team, close the sheet
 // and tap theirs. Fixing an old hand keeps the switch, so a hand logged wrong can be moved.
+// Who went out, in order: the winners first (first out is always one of them), then the
+// other pair. Tap a placed player again to take them and everyone after them back off.
+function orderPicker(order, teams, w) {
+  const ids = [...teams[w], ...teams[1 - w]];
+  return `<p class="label">${tr('whoWentOut')} <span class="muted">${tr('tapInOrder')}</span></p>
+    <div class="order-pick">${ids.map(id => {
+      const pos = order.indexOf(id);
+      const t = teams[w].includes(id) ? w : 1 - w;
+      const blocked = pos < 0 && !order.length && t !== w;
+      return `<button class="order-chip t${t} ${pos >= 0 ? 'on' : ''}" data-action="order-tap" data-id="${esc(id)}" ${blocked ? 'disabled' : ''}>
+        <span class="oc-pos">${pos >= 0 ? tr('places')[pos] : ''}</span><span class="oc-name">${esc(pname(id))}</span>
+      </button>`;
+    }).join('')}</div>`;
+}
+
+// What the order says the hand is worth: where the first player out's partner finished
+// (2nd = +3 / ×3, 3rd = +2 / ×2, last = +1 / ×1). Null until that's known.
+function orderStep(order, teams, w) {
+  if (!order?.length) return null;
+  const at = order.indexOf(teams[w].find(id => id !== order[0]));
+  return at > 0 ? { 1: 3, 2: 2, 3: 1 }[at] : null;
+}
+
 const wonTitle = (t, who) => `<h2 class="won-title t${t}"><span class="suit">${SUIT[t]}</span>${tr('teamWon', who)}</h2>`;
 
 function sheetDeal() {
@@ -1425,16 +1751,18 @@ function sheetDeal() {
     <div class="seg big-seg">
       ${[0, 1].map(t => `<button class="t${t} ${w === t ? 'on' : ''}" data-action="deal-winner" data-team="${t}">${SUIT[t]} ${tr('teamWon', teamName(t))}</button>`).join('')}
     </div>` : wonTitle(w, teamName(w))}
-    <p class="label">${tr('whoFirst')} <span class="muted">${tr('optional')}</span></p>
-    <div class="chip-row">
-      ${g.teams[w].map(id => `<button class="chip ${s.firstOut === id ? 'on' : ''}" data-action="deal-first" data-id="${id}">${esc(pname(id))}</button>`).join('')}
-    </div>
+    ${tracksOut(g) ? orderPicker(s.order, g.teams, w) : ''}
     <div class="gain-btns">
-      ${[1, 2, 3].map(n => `<button class="gain-btn t${w} ${editing && s.step === n ? 'on' : ''}" data-action="deal-save" data-step="${n}">+${n}</button>`).join('')}
+      ${[1, 2, 3].map(n => {
+        const fixed = orderStep(s.order, g.teams, w);
+        return `<button class="gain-btn t${w} ${(fixed ? fixed === n : editing && s.step === n) ? 'on' : ''}" data-action="deal-save" data-step="${n}" ${fixed && fixed !== n ? 'disabled' : ''}>+${n}</button>`;
+      }).join('')}
     </div>
     ${editing ? `<button class="btn danger full" data-action="delete-deal">${tr('deleteHand')}</button>` : ''}
     <button class="btn subtle full" data-action="close-sheet">${tr('cancel')}</button>`;
 }
+
+const trackMenuItem = g => `<button data-action="track-out-game">${tr('trackOutTitle')}: ${tr(tracksOut(g) ? 'on' : 'off')}<small>${tr(tracksOut(g) ? 'trackOutOnSub' : 'trackOutOffSub')}</small></button>`;
 
 function sheetMenu() {
   const g = activeGame();
@@ -1444,6 +1772,7 @@ function sheetMenu() {
     <div class="menu">
       <button data-action="settle-open">${tr('settleUp')}</button>
       <button data-action="pairing-open">${tr('changePartners')}</button>
+      ${trackMenuItem(g)}
       ${g.guest ? '' : `<button data-action="open-game" data-id="${g.id}">${tr('seeInHistory')}</button>`}
       <button data-action="finish-zhuan">${tr('finishGame')}<small>${tr(g.guest ? 'endGuestSub' : 'finishSub')}</small></button>
     </div>
@@ -1455,6 +1784,7 @@ function sheetMenu() {
     <h2>${tr('gameOptions')}</h2>
     <div class="menu">
       ${st.winner === null ? `<button data-action="adjust-open">${tr('setLevels')}<small>${tr('setLevelsSub')}</small></button>` : ''}
+      ${st.winner === null ? trackMenuItem(g) : ''}
       ${g.guest ? '' : `<button data-action="open-game" data-id="${g.id}">${tr('seeInHistory')}</button>`}
       ${st.winner !== null ? '' : g.guest
         ? `<button class="danger" data-action="abandon-game">${tr('endGuest')}<small>${tr('endGuestSub')}</small></button>`
@@ -1617,10 +1947,13 @@ function toast(msg, withUndo = false, extra = null) {
   toastTimer = setTimeout(() => el.classList.remove('show'), extra ? 6500 : withUndo ? 5000 : 2500);
 }
 
+const savedOrder = d => (d.order ? d.order.slice() : d.firstOut ? [d.firstOut] : []);
+const orderFields = order => ({ firstOut: order?.[0] ?? null, order: order?.length ? order.slice() : undefined });
+
 // A hand saved without "who went out first" in a game that counts for stats: say so and
 // offer to add it, without getting in the way. Undo stays on the toast.
 function nudgeFirst(g, dealId, firstOut) {
-  if (firstOut || g.guest) return;
+  if (firstOut || g.guest || !tracksOut(g)) return;
   toast(tr('firstMissed'), true, { action: 'first-add', id: dealId, label: tr('addIt') });
 }
 
@@ -1987,7 +2320,7 @@ const ACTION_SOUND = {
   'shuffle-teams': 'flip', 'swap-teams': 'flip', 'pick-player': 'pop',
   'zdeal-save': null, 'pairing-open': 'open', 'settle-open': 'open', 'pairing-pick': 'flip', 'finish-zhuan': 'chip',
   'jokers-toggle': 'pop', 'pick-mode': 'open', 'choose-mode': 'chip',
-  'live-bomb': null, 'live-jokers': null, 'rename-seat': 'open', 'rules-open': 'open', 'gg-toggle': null, 'mode-back': 'undo', 'first-add': 'open', 'first-set': 'chip',
+  'live-bomb': null, 'live-jokers': null, 'rename-seat': 'open', 'rules-open': 'open', 'gg-toggle': null, 'mode-back': 'undo', 'first-add': 'open', 'first-set': 'chip', 'order-tap': 'pop', 'track-out': 'tap', 'track-out-game': 'flip', 'copy-restore': 'open',
   'toggle-sound': null, 'toggle-lang': 'flip',
 };
 
@@ -2014,10 +2347,10 @@ const actions = {
     const g = activeGame();
     if (isZhuan(g)) {
       const live = liveOf(g);
-      openSheet({ type: 'deal', gameId: g.id, winner: +team, firstOut: null, teams: g.teams.map(t => t.slice()), bombs: live.bombs, jokers: live.jokers });
+      openSheet({ type: 'deal', gameId: g.id, winner: +team, order: [], teams: g.teams.map(t => t.slice()), bombs: live.bombs, jokers: live.jokers });
       return;
     }
-    openSheet({ type: 'deal', gameId: g.id, winner: +team, firstOut: null });
+    openSheet({ type: 'deal', gameId: g.id, winner: +team, order: [] });
   },
   'bomb-step'({ d }) {
     ui.sheet.bombs = Math.min(8, Math.max(0, ui.sheet.bombs + +d));
@@ -2027,7 +2360,7 @@ const actions = {
   'zdeal-save'({ mult }) {
     const s = ui.sheet;
     const g = findGame(s.gameId);
-    const fields = { winner: s.winner, teams: s.teams.map(t => t.slice()), mult: +mult, bombs: s.bombs, jokers: s.jokers, firstOut: s.firstOut };
+    const fields = { winner: s.winner, teams: s.teams.map(t => t.slice()), mult: +mult, bombs: s.bombs, jokers: s.jokers, ...orderFields(s.order) };
     ui.sheet = null;
     if (s.dealId) {
       mutate(tr('handUpdated'), () => Object.assign(g.deals.find(d => d.id === s.dealId), fields));
@@ -2050,7 +2383,7 @@ const actions = {
     const d = findGame(s.gameId)?.deals.find(x => x.id === s.dealId);
     ui.sheet = null;
     if (!d) return render();
-    mutate(tr('outFirst', pname(id)), () => { d.firstOut = id; });
+    mutate(tr('outFirst', pname(id)), () => { d.firstOut = id; d.order = [id]; });
   },
   'live-bomb'({ d }) {
     const g = activeGame();
@@ -2098,8 +2431,33 @@ const actions = {
     switchView();
   },
   'deal-winner'({ team }) {
-    if (ui.sheet.winner !== +team) { ui.sheet.winner = +team; ui.sheet.firstOut = null; }
+    if (ui.sheet.winner !== +team) { ui.sheet.winner = +team; ui.sheet.order = []; }
     render();
+  },
+  'order-tap'({ id }) {
+    const s = ui.sheet;
+    const g = findGame(s.gameId);
+    const teams = isZhuan(g) ? s.teams : g.teams;
+    const at = s.order.indexOf(id);
+    if (at >= 0) s.order = s.order.slice(0, at);
+    else {
+      s.order.push(id);
+      // three placed: the fourth is whoever's left
+      if (s.order.length === 3) s.order.push(teams.flat().find(x => !s.order.includes(x)));
+    }
+    render();
+  },
+  'track-out'({ v }) {
+    ui.draft.trackOut = v === '1';
+    setTrackOutPref(ui.draft.trackOut);
+    render();
+  },
+  'track-out-game'() {
+    const g = activeGame();
+    if (!g) return;
+    const on = !tracksOut(g);
+    setTrackOutPref(on);
+    mutate(tr(on ? 'trackOutNowOn' : 'trackOutNowOff'), () => { g.trackOut = on; });
   },
   'deal-first'({ id }) {
     ui.sheet.firstOut = ui.sheet.firstOut === id ? null : id;
@@ -2108,7 +2466,7 @@ const actions = {
   'deal-save'({ step }) {
     const s = ui.sheet;
     const g = findGame(s.gameId);
-    const fields = { winner: s.winner, place: STEP_PLACE[+step], firstOut: s.firstOut };
+    const fields = { winner: s.winner, place: STEP_PLACE[+step], ...orderFields(s.order) };
     ui.sheet = null;
     if (s.dealId) {
       mutate(tr('handUpdated'), () => Object.assign(g.deals.find(d => d.id === s.dealId), fields));
@@ -2127,11 +2485,11 @@ const actions = {
     const g = findGame(game);
     const d = g.deals.find(x => x.id === id);
     if (isZhuan(g)) {
-      openSheet({ type: 'deal', gameId: game, dealId: id, winner: d.winner, teams: d.teams.map(t => t.slice()), mult: d.mult, bombs: d.bombs || 0, jokers: Boolean(d.jokers), firstOut: d.firstOut });
+      openSheet({ type: 'deal', gameId: game, dealId: id, winner: d.winner, teams: d.teams.map(t => t.slice()), mult: d.mult, bombs: d.bombs || 0, jokers: Boolean(d.jokers), order: savedOrder(d) });
       return;
     }
     if (d.type === 'adjust') openSheet({ type: 'adjust', gameId: game, dealId: id, levels: d.levels.slice(), declarer: d.declarer });
-    else openSheet({ type: 'deal', gameId: game, dealId: id, winner: d.winner, step: BUMP[d.place], firstOut: d.firstOut });
+    else openSheet({ type: 'deal', gameId: game, dealId: id, winner: d.winner, step: BUMP[d.place], order: savedOrder(d) });
   },
   'delete-deal'() {
     const s = ui.sheet;
@@ -2263,6 +2621,7 @@ const actions = {
         stake,
         currency: d.currency,
         deals: [],
+        trackOut: d.trackOut,
         ...(d.guest && { guest: true }),
       };
     } else {
@@ -2274,6 +2633,7 @@ const actions = {
         rules: { ...d.rules },
         start: { levels: d.start.levels.slice(), declarer: unequal ? d.start.declarer : null },
         deals: [],
+        trackOut: d.trackOut,
         abandoned: false,
         ...(d.guest && { guest: true }),
       };
@@ -2405,10 +2765,15 @@ const actions = {
     const json = JSON.stringify(data, null, 2);
     const name = `guandan-backup-${new Date().toISOString().slice(0, 10)}.json`;
     const file = new File([json], name, { type: 'application/json' });
+    const saved = () => {
+      try { localStorage.setItem(EXPORT_KEY, JSON.stringify({ at: Date.now(), games: trackedGames() })); } catch (e) { /* ignore */ }
+      if (ui.tab === 'players' || ui.tab === 'history') render();
+    };
     if (navigator.canShare?.({ files: [file] })) {
-      try { await navigator.share({ files: [file], title: tr('backupShareTitle') }); return; }
+      try { await navigator.share({ files: [file], title: tr('backupShareTitle') }); saved(); return; }
       catch (e) { if (e.name === 'AbortError') return; }
     }
+    saved();
     const a = document.createElement('a');
     a.href = URL.createObjectURL(file);
     a.download = name;
@@ -2416,6 +2781,17 @@ const actions = {
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   },
   import() { document.getElementById('import-file').click(); },
+  async 'copy-restore'({ at }) {
+    const c = (await copies.list()).find(x => x.at === +at);
+    if (!c) return;
+    openSheet({
+      type: 'confirm',
+      title: tr('restoreTitle'),
+      body: tr('restoreBody', `${fmtDate(c.at)} ${fmtTime(c.at)}`),
+      label: tr('restore'),
+      run: () => mutate(tr('restored'), () => { data = JSON.parse(c.json); }),
+    });
+  },
 };
 
 const forms = {

@@ -14,12 +14,15 @@ Shuffle up and have fun! 🃏
 
 - **Two ways to play.** After the opening animation, pick **掼蛋 Guandan** (climb from 2 to A) or **转蛋 Zhuandan** (always on 2, play for money), and choose **Quick game** (nothing saved) or **Track stats** right there. Switch any time with the mode button at the top of the Play screen.
 - **Big playing-card scoreboard.** Each team's level shows as a card you can read from across the table. It flips over every time a team climbs.
-- **Super simple scoring.** Tap the winning team's card, then tap **+1**, **+2** or **+3**. That's it! Tapped the wrong card? Just close the pop-up and tap the other one. The app handles the rules on A for you.
+- **Super simple scoring.** Tap the winning team's card, then tap **+1**, **+2** or **+3**. That's it! Tapped the wrong card? Just close the pop-up and tap the other one.
+- **Record who went out (your choice).** Turn on **Record who went out** when you set up a game, and tap the players in the order they finished: the score fills itself in, and the stats learn who goes out first. Turn it off and the pop-up is just +1 +2 +3. You can switch it any time from the ••• menu.
+- **Tribute reminder.** After every 掼蛋 hand the table shows who gives tribute to whom (末游 → 头游, both losers after a 1-2 finish), with names when you recorded the order.
+- **The screen stays on** while a game is open, so the phone on the table doesn't dim between hands. The app handles the rules on A for you.
 - **Knows the rules.** Shows whose level is being played and which heart is wild, and handles the "you must win on A" rule. By default a team gets 3 tries at A before dropping back to 2, and you can change house rules like "1-4 counts on A" or "unlimited tries on A".
 - **Mistakes are no big deal.** Undo the last hand, tap any earlier hand to edit or delete it, and every level after it fixes itself.
 - **Quick game or tracked game.** A quick game is the fastest way to start: type four names, or leave them as 1 2 3 4, and play. Nothing is saved. Switch to **Track stats** when you want the game to count.
 - **Player stats.** Add your regulars once. The app tracks win rates for every player, every partnership and every head-to-head matchup. You can rename or delete players any time.
-- **History.** Every tracked game is saved by date. You can resume an unfinished game whenever you like, or delete one you don't want.
+- **History with charts.** Every tracked game is saved by date, with a chart of both teams' levels hand by hand (or everyone's running money in 转蛋). Tap the chart to read any hand. You can resume an unfinished game whenever you like, or delete one you don't want.
 - **Share with friends.** Send a game result or the leaderboard to Messages, WeChat, WhatsApp or anywhere else.
 - **Spring! 春天！** Win the game without the other team taking a single hand and you get a special celebration, complete with falling blossoms and a voice that calls it out.
 - **Rules at your fingertips.** Tap the **?** button at the top for a quick how-to-play guide for whichever mode you're in, 掼蛋 or 转蛋, with little playing cards showing every play, bomb and payout.
@@ -48,7 +51,9 @@ Everything is saved **on the device** you're using. Nothing is uploaded anywhere
 - **Players tab → Export backup** saves a `.json` file (on iPhone or iPad you can choose *Save to Files*).
 - **Players tab → Import backup** on the other device loads that file.
 
-Export a backup every so often. It's cheap insurance for years of bragging rights.
+Export a backup every so often. It's cheap insurance for years of bragging rights. The History tab gives you a nudge when it's been a while.
+
+The app also keeps **saved copies on the device** automatically, every few hours of play. You'll find them under **Players tab → Backup**, each with a **Restore** button. If the app ever starts up empty, it offers the latest copy back.
 
 ## How to play Guandan (掼蛋)
 

@@ -175,6 +175,45 @@ h2 { font-size: 20px; font-weight: 700; margin-bottom: 10px; }
 .rules-sec li { font-size: 15px; line-height: 1.45; }
 .rules-sec li::marker { color: var(--label-2); }
 .rules-sec b { font-weight: 700; }
+
+/* rules visuals: tiny playing cards and finish-order dots */
+.rv { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.rv-row { display: flex; align-items: center; gap: 6px 10px; flex-wrap: wrap; }
+.rv-label { min-width: 104px; font-size: 13px; font-weight: 600; color: var(--label-2); }
+.rv-label:empty { display: none; }
+.rv-cap { font-size: 13px; color: var(--label-2); }
+.rv-res { margin-left: auto; min-width: 36px; text-align: right; font-size: 17px; font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; }
+.rv-eq, .rv-dots { font-weight: 700; color: var(--label-2); align-self: center; }
+.rv-note { font-size: 13px; color: var(--label-2); }
+.mini-hand { display: inline-flex; flex-wrap: wrap; gap: 2px; }
+/* a bomb shown as a little fanned stack */
+.mini-hand.stack { flex-wrap: nowrap; gap: 0; }
+.mini-hand.stack .mini-card + .mini-card { margin-left: -11px; }
+.mini-hand.stack .mini-card { align-items: flex-start; padding-left: 3px; }
+.mini-hand.stack .mini-card.joker { padding-left: 1px; font-size: 12px; }
+.mini-card {
+  width: 22px; height: 32px; border-radius: 4px; flex-shrink: 0;
+  display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+  background: linear-gradient(160deg, #fff, var(--paper)); color: var(--ink);
+  font-family: "Guandan Rounded", ui-rounded, system-ui, sans-serif;
+  font-size: 12px; font-weight: 800; line-height: 1;
+  box-shadow: 0 0 0 .5px rgba(0, 0, 0, .18), 0 1px 3px rgba(0, 0, 0, .25);
+}
+.mini-card i { font-style: normal; font-size: 10px; margin-top: 1px; }
+.mini-card.red { color: var(--card-red); }
+.mini-card.joker { font-size: 15px; }
+.mini-card.any { color: var(--label-2); font-size: 15px; background: var(--paper-2); }
+.mini-card.wild { box-shadow: 0 0 0 2px var(--gold), 0 1px 3px rgba(0, 0, 0, .25); transform: rotate(-6deg); }
+.mini-card.level { box-shadow: 0 0 0 2px var(--accent), 0 1px 3px rgba(0, 0, 0, .25); }
+.finish { display: inline-flex; gap: 6px; }
+.seat {
+  width: 26px; height: 26px; border-radius: 13px; display: inline-grid; place-items: center;
+  font-size: 13px; font-weight: 800; color: #fff;
+}
+.seat.r { background: var(--red); }
+.seat.b { background: var(--blue); opacity: .55; }
+
+.table-menu { display: none; }
 .sound-btn.off span { color: var(--label-2); text-decoration: line-through; }
 .sound-btn:active, .bar .icon-btn:active { transform: scale(.94); background: var(--fill-2); }
 .icon-btn { width: 44px; height: 44px; border-radius: 22px; font-size: 14px; color: var(--label-2); transition: transform 140ms var(--ease-out); }
@@ -1009,11 +1048,35 @@ tr[data-action]:active td { background: var(--fill); }
   .board > .teams .team-head { font-size: 20px; }
   .board > .teams .team-players::before { content: "·"; margin: 0 6px; }
   /* badges sit on the card's bottom edge, clear of the names */
-  .board > .teams .team-meta { position: absolute; left: 0; right: 0; bottom: -6px; min-height: 0; z-index: 1; }
-  .board > .teams .pcard-wrap { --w: min(calc((100dvh - 104px) * 5 / 7), 36vw); margin: 4px auto 0; }
+  .board > .teams .team-meta { position: absolute; left: 0; right: 0; bottom: 14px; min-height: 0; z-index: 1; }
+  .board > .teams .badge:not(.gold):not(.hot) { background: var(--felt); color: var(--gold); }
+  .board > .teams .badge.hot { background: var(--card-red); color: #fff; }
+  /* the game menu (settle up, partners, levels…) from the corner of the table */
+  .table-menu {
+    display: grid; place-items: center; position: absolute; z-index: 2;
+    top: max(8px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right));
+    width: 40px; height: 32px; border-radius: 16px;
+    background: rgba(255, 255, 255, .14); color: var(--on-felt); font-size: 14px; letter-spacing: 1px;
+    transition: transform 140ms var(--ease-out);
+  }
+  .table-menu:active { transform: scale(.92); }
+  .board > .teams .pcard-wrap { --w: min(calc((100dvh - 64px) * 5 / 7), 31vw); margin: 4px auto 0; }
   /* before the first hand, the "tap their card" hint rides in the status line */
   .board > .tap-hint { display: none; }
-  .play-grid.done .board > .teams .pcard-wrap { --w: min(calc((100dvh - 172px) * 5 / 7), 36vw); }
+  .play-grid.done .board > .teams .pcard-wrap { --w: min(calc((100dvh - 124px) * 5 / 7), 31vw); }
+
+  /* 掼蛋: the two cards run almost the full height, with the status in a slim column
+     between them: Red | deal, level, wild | Blue */
+  .play-grid:not(.zhuan) {
+    display: grid; grid-template-columns: minmax(0, 1fr) clamp(110px, 16vw, 170px) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto; align-items: center; column-gap: 12px; row-gap: 8px;
+  }
+  .play-grid:not(.zhuan) .board > .teams { display: contents; }
+  .play-grid:not(.zhuan) .team.t0 { grid-column: 1; grid-row: 1; }
+  .play-grid:not(.zhuan) .team.t1 { grid-column: 3; grid-row: 1; }
+  .play-grid:not(.zhuan) .board > .status { grid-column: 2; grid-row: 1; flex-direction: column; gap: 10px; line-height: 1.3; }
+  .play-grid:not(.zhuan) .board > .status.champ { font-size: 22px; }
+  .play-grid:not(.zhuan) .board > .actions-row { grid-column: 1 / -1; grid-row: 2; }
   .board > .status .tap-inline { display: inline; color: var(--on-felt-muted); font-weight: 600; }
   .board > .money-board { align-items: stretch; padding: 4px 0; }
   .board > .money-board .money-team { justify-content: center; gap: 10px; padding: 10px; }
@@ -1041,10 +1104,13 @@ tr[data-action]:active td { background: var(--fill); }
   .board > .teams .team { padding: 14px 16px; border-radius: 24px; }
   .board > .teams .team-head { font-size: 30px; }
   .board > .teams .team-players { font-size: 21px; }
-  .board > .teams .team-meta { bottom: -10px; }
+  .board > .teams .team-meta { bottom: 28px; }
   .board > .teams .badge { font-size: 17px; padding: 6px 14px; border-radius: 16px; }
-  .board > .teams .pcard-wrap { --w: min(calc((100dvh - 170px) * 5 / 7), 40vw); margin: 10px auto 0; }
-  .play-grid.done .board > .teams .pcard-wrap { --w: min(calc((100dvh - 290px) * 5 / 7), 40vw); }
+  .board > .teams .pcard-wrap { --w: min(calc((100dvh - 130px) * 5 / 7), 36vw); margin: 10px auto 0; }
+  .play-grid.done .board > .teams .pcard-wrap { --w: min(calc((100dvh - 230px) * 5 / 7), 36vw); }
+  .play-grid:not(.zhuan) { grid-template-columns: minmax(0, 1fr) clamp(160px, 15vw, 220px) minmax(0, 1fr); column-gap: 24px; }
+  .play-grid:not(.zhuan) .board > .status { gap: 16px; }
+  .play-grid:not(.zhuan) .board > .status.champ { font-size: 32px; }
   .board > .money-board { gap: 40px; }
   .board > .money-board .money-team { gap: 16px; padding: 18px; border-radius: 24px; }
   .board > .money-board .team-head { font-size: 30px; }

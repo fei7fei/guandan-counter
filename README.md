@@ -22,13 +22,13 @@ Shuffle up and have fun! 🃏
 - **History.** Every tracked game is saved by date. You can resume an unfinished game whenever you like, or delete one you don't want.
 - **Share with friends.** Send a game result or the leaderboard to Messages, WeChat, WhatsApp or anywhere else.
 - **Spring! 春天！** Win the game without the other team taking a single hand and you get a special celebration, complete with falling blossoms and a voice that calls it out.
-- **Rules at your fingertips.** Tap the **?** button at the top for a quick how-to-play guide for whichever mode you're in, 掼蛋 or 转蛋.
+- **Rules at your fingertips.** Tap the **?** button at the top for a quick how-to-play guide for whichever mode you're in, 掼蛋 or 转蛋, with little playing cards showing every play, bomb and payout.
 - **Red is ♦, Blue is ♠.** The red team plays diamonds, so its card never looks like the wild ♥ of the level rank.
 - **English and 中文.** Tap the 中文 / EN button to switch languages. It starts in Chinese on phones set to Chinese.
 - **Fun to use.** Card flips, poker-chip buttons, sound effects and a confetti shower when a team wins. Sound can be turned off with the ♪ button.
 - **A tune to open with.** As the chick waddles in, a little melody plays along: a note for every step, a boing for the hop, chimes as the aces fan out and sparkles as the suits light up. iPhones and iPads don't let web apps play sound before the first tap, so there the opening usually plays without music.
 - **Works offline.** Once it's on your Home Screen, it works with no internet connection.
-- **Turn it sideways for the big table.** Turn your phone or iPad and the game fills the whole screen: two giant level cards in 掼蛋, or everyone's money in big numbers in 转蛋, easy to read from anywhere around the table. Recording works the same as upright: tap the winning team's card in 掼蛋, or **Red won / Blue won** (next to the bomb counter) in 转蛋. Turn it back upright for the hand list, partners and settle up.
+- **Turn it sideways for the big table.** Turn your phone or iPad and the game fills the whole screen: two giant level cards in 掼蛋, or everyone's money in big numbers in 转蛋, easy to read from anywhere around the table. Recording works the same as upright: tap the winning team's card in 掼蛋, or **Red won / Blue won** (next to the bomb counter) in 转蛋. The **•••** in the corner opens the game options (settle up, change partners, set levels) without turning back. Turn it upright for the hand list.
 
 ## Put it on your iPhone or iPad
 

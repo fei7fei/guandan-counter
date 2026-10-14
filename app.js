@@ -631,8 +631,12 @@ function renderPlay() {
         <h2>${tr('hands')}</h2>
         ${dealLog(g, st)}
       </section>
+      ${tableMenuBtn()}
     </div>`;
 }
+
+// Only shown sideways, where the full-screen table hides the header and its ••• button.
+const tableMenuBtn = () => `<button class="table-menu" data-action="game-menu" aria-label="${tr('tableMenu')}">•••</button>`;
 
 // ----- Play: 转蛋 -----
 function renderPlayZhuan(g) {
@@ -665,6 +669,7 @@ function renderPlayZhuan(g) {
         <h2>${tr('hands')}</h2>
         ${zhuanLog(g)}
       </section>
+      ${tableMenuBtn()}
     </div>`;
 }
 
@@ -1473,6 +1478,48 @@ function sheetRename() {
     <button class="btn subtle full" data-action="close-sheet">${tr('cancel')}</button>`;
 }
 
+// ----- little cards for the rules: they show what the words say -----
+// A hand is written like '8♠ 8♦ 4♥': RJ/BJ are the red and black jokers, a trailing * marks
+// the wild card, ! marks the level card, ? is "any card" and … skips ranks.
+function miniHand(spec, cls = '') {
+  return `<span class="mini-hand ${cls}">${spec.split(' ').map(c => {
+    if (c === '…') return '<span class="rv-dots">…</span>';
+    if (c === 'RJ' || c === 'BJ') return `<span class="mini-card joker ${c === 'RJ' ? 'red' : ''}">★</span>`;
+    if (c === '?') return '<span class="mini-card any">?</span>';
+    const mark = /[*!]$/.test(c) ? c.slice(-1) : '';
+    const card = mark ? c.slice(0, -1) : c;
+    const suit = card.slice(-1), rank = card.slice(0, -1);
+    const cls = [suit === '♥' || suit === '♦' ? 'red' : '', mark === '*' ? 'wild' : '', mark === '!' ? 'level' : ''].join(' ');
+    return `<span class="mini-card ${cls}">${rank}<i>${suit}</i></span>`;
+  }).join('')}</span>`;
+}
+
+// Finish order as four dots: the winning (red) team's two players and where they went out.
+function finishDots(order) {
+  return `<span class="finish">${order.map((t, i) => `<span class="seat ${t}">${i + 1}</span>`).join('')}</span>`;
+}
+
+function ruleVisual(v) {
+  const row = (label, body, res = '') => `<div class="rv-row"><span class="rv-label">${label}</span>${body}${res ? `<b class="rv-res">${res}</b>` : ''}</div>`;
+  const finishes = [['r', 'r', 'b', 'b'], ['r', 'b', 'r', 'b'], ['r', 'b', 'b', 'r']];
+  const sets = {
+    levels: () => `<div class="rv">${miniHand('2♦ 3♠ 4♦ 5♠ 6♦ 7♠ 8♦ 9♠ 10♦ J♠ Q♦ K♠ A♦')}</div>`,
+    wild: () => `<div class="rv">${row(tr('rvPlaying7'), `${miniHand('7♥*')}<span class="rv-eq">=</span>${miniHand('?')}<span class="rv-note">${tr('rvAny')}</span>`)}</div>`,
+    order: () => `<div class="rv">${miniHand('RJ BJ 7♠! A♦ K♠ Q♦ J♠ 10♦ … 3♠ 2♦')}</div>`,
+    plays: () => `<div class="rv">${tr('playNames').map((name, i) => row(name, miniHand([
+      '8♠', '8♠ 8♦', '8♠ 8♦ 8♣', '8♠ 8♦ 8♣ 4♥ 4♠', '4♠ 5♦ 6♣ 7♥ 8♠', '4♠ 4♦ 5♣ 5♥ 6♠ 6♦', '4♠ 4♦ 4♣ 5♥ 5♠ 5♦',
+    ][i]))).join('')}</div>`,
+    bombs: () => `<div class="rv">${tr('bombNames').map((name, i) => row(name, miniHand([
+      '9♠ 9♦ 9♣ 9♥', '9♠ 9♦ 9♣ 9♥ 9♠', '5♠ 6♠ 7♠ 8♠ 9♠', '9♠ 9♦ 9♣ 9♥ 9♠ 9♦', 'RJ RJ BJ BJ',
+    ][i]))).join('')}</div>`,
+    score: () => `<div class="rv"><p class="rv-cap">${tr('rvFinish')}</p>${finishes.map((f, i) => row('', finishDots(f), `+${3 - i}`)).join('')}</div>`,
+    zwild: () => `<div class="rv">${row(tr('rvEveryHand'), `${miniHand('2♥*')}<span class="rv-eq">=</span>${miniHand('?')}<span class="rv-note">${tr('rvAny')}</span>`)}</div>`,
+    zmoney: () => `<div class="rv"><p class="rv-cap">${tr('rvFinish')}</p>${finishes.map((f, i) => row('', finishDots(f), `×${3 - i}`)).join('')}</div>`,
+    zbombs: () => `<div class="rv">${tr('zBombNames').map((name, i) => row(name, [miniHand('9♠ 9♦ 9♣ 9♥', 'stack'), `${miniHand('9♠ 9♦ 9♣ 9♥', 'stack')}${miniHand('5♠ 6♠ 7♠ 8♠ 9♠', 'stack')}`, miniHand('RJ RJ BJ BJ', 'stack')][i], ['×2', '×4', '×4'][i])).join('')}</div>`,
+  };
+  return sets[v] ? sets[v]() : '';
+}
+
 // How to play, for whichever mode is picked (掼蛋 or 转蛋).
 function sheetRules() {
   const sections = tr(ui.mode === 'zhuan' ? 'rulesZhuan' : 'rulesGuandan');
@@ -1482,6 +1529,7 @@ function sheetRules() {
       ${sections.map(sec => `<section class="rules-sec">
         <h3>${sec.h}</h3>
         <ul>${sec.items.map(it => `<li>${it}</li>`).join('')}</ul>
+        ${[].concat(sec.v || []).map(ruleVisual).join('')}
       </section>`).join('')}
     </div>
     <button class="btn ink full" data-action="close-sheet">${tr('gotIt')}</button>`;

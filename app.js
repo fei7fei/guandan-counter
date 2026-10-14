@@ -1741,18 +1741,17 @@ function flipCard(t, diff) {
 
 // The winners took the game without the other side winning a single hand.
 // ---------- GG mode (a secret) ----------
-// Tapping the title on the mode screen turns it on. Then a Spring plays the "GG EZ" clip
-// with its GIF instead of the blossoms. Both files load only once it's switched on.
-const GG_KEY = 'guandan-counter/gg';
+// Tapping the title on the mode screen turns it on, for this session only: every launch
+// starts with it off. Then a Spring plays the "GG EZ" clip with its GIF instead of the
+// blossoms. Both files load only once it's switched on.
 const GG_SOUND = 'assets/gg-ez.mp3';
 const GG_GIF = 'assets/gg-ez.webp';
-let ggMode = (() => { try { return localStorage.getItem(GG_KEY) === '1'; } catch (e) { return false; } })();
+let ggMode = false;
 
 function preloadGG() {
   sound.preload(GG_SOUND);
   new Image().src = GG_GIF;
 }
-if (ggMode) preloadGG();
 
 function ggBanner() {
   const layer = document.createElement('div');
@@ -2345,7 +2344,6 @@ const actions = {
   'rules-open'() { openSheet({ type: 'rules' }); },
   'gg-toggle'(_, el) {
     ggMode = !ggMode;
-    try { localStorage.setItem(GG_KEY, ggMode ? '1' : '0'); } catch (e) { /* ignore */ }
     el.querySelector('.gg-tag')?.remove();
     // silent either way, so nobody nearby hears the secret being switched
     if (ggMode) {

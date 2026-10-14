@@ -12,7 +12,7 @@ Shuffle up and have fun! 🃏
 
 ## What it does
 
-- **Two ways to play.** After the opening animation, pick **掼蛋 Guandan** (climb from 2 to A) or **转蛋 Zhuandan** (always on 2, play for money). Switch any time with the mode button at the top of the Play screen.
+- **Two ways to play.** After the opening animation, pick **掼蛋 Guandan** (climb from 2 to A) or **转蛋 Zhuandan** (always on 2, play for money), and choose **Quick game** (nothing saved) or **Track stats** right there. Switch any time with the mode button at the top of the Play screen.
 - **Big playing-card scoreboard.** Each team's level shows as a card you can read from across the table. It flips over every time a team climbs.
 - **Super simple scoring.** Tap the team that won, then tap **+1**, **+2** or **+3**. That's it! The app handles the rules on A for you.
 - **Knows the rules.** Shows whose level is being played and which heart is wild, and handles the "you must win on A" rule. By default a team gets 3 tries at A before dropping back to 2, and you can change house rules like "1-4 counts on A" or "unlimited tries on A".
@@ -153,9 +153,10 @@ Zhuandan uses all the same cards and plays as Guandan, with a few big difference
 ### Keeping score in the app
 
 1. Pick **Zhuandan**, then choose the **base amount** and the money: **¥ RMB**, **$ CAD** or plain **points**.
-2. After each hand, tap the team that won. Add any bombs with **+**, tap **4 jokers ×4** if they came out, then tap **×1**, **×2** or **×3**. Each button shows how much every winner collects.
-3. Everyone's running total sits on the table. Tap **Change partners** whenever the pairs switch.
-4. Tap **Settle up** to see the totals and **who pays whom**, using the fewest payments possible. **Finish and save** puts the game in History.
+2. **Count bombs as they land.** Tap **💣 Bomb!** every time someone bombs during the hand (and **4 jokers ×4** if they show up), so nobody has to remember at the end. The counter shows what the hand now pays.
+3. After each hand, tap the team that won. Your bombs are already filled in. Fix the bomb count with **−** / **+** if needed, then tap **×1**, **×2** or **×3**. Each button shows how much every winner collects.
+4. Everyone's running total sits on the table. Tap **Change partners** whenever the pairs switch, or tap a player to change their name mid-game.
+5. Tap **Settle up** to see the totals and **who pays whom**, using the fewest payments possible. **Finish and save** puts the game in History.
 
 Zhuandan games get their own **money leaderboard** in Stats (switch between 掼蛋 and 转蛋 at the top), with each player's net winnings, hands won, and how every partnership does together. Each player's page shows their Zhuandan record too.
 

@@ -187,6 +187,11 @@ const sound = (() => {
     undo: () => tone(700, { dur: 0.16, type: 'triangle', gain: 0.09, slide: 330 }),
     del: () => tone(240, { dur: 0.2, type: 'sine', gain: 0.16, slide: 110 }),
     pop: () => tone(700, { dur: 0.1, type: 'sine', gain: 0.12, slide: 1400 }),
+    // a soft, low thud for a bomb landing during a 转蛋 hand
+    boom: () => {
+      noise({ dur: 0.38, gain: 0.32, freq: 380, to: 70, q: 0.7 });
+      tone(120, { dur: 0.32, type: 'sine', gain: 0.22, slide: 45 });
+    },
     nope: () => { tone(220, { dur: 0.09, type: 'square', gain: 0.04 }); tone(196, { t: 0.1, dur: 0.12, type: 'square', gain: 0.04 }); },
   };
 
@@ -644,6 +649,7 @@ function renderPlayZhuan(g) {
         </div>
         ${g.guest ? `<p class="hint center guest-note">${tr('guestBadge')}</p>` : ''}
         ${moneyBoard(g, g.teams, net)}
+        ${bombLive(g)}
         <div class="record">
           <div class="record-btns">
             ${[0, 1].map(t => `<button class="chip-btn t${t}" data-action="record" data-team="${t}"><span>${tr('teamWon', teamName(t))}</span></button>`).join('')}
@@ -675,12 +681,32 @@ function moneyBoard(g, teams, net) {
       <div class="money-team t${t}">
         <div class="team-head"><span class="suit">${SUIT[t]}</span>${teamName(t)}</div>
         ${teams[t].map(id => `
-          <div class="money-row" data-pid="${esc(id)}">
+          <button class="money-row" data-action="rename-seat" data-id="${esc(id)}" data-pid="${esc(id)}" aria-label="${tr('editName')}: ${esc(pname(id))}">
             <span class="avatar">${esc(pname(id).slice(0, 1).toUpperCase())}</span>
-            <span class="mr-name">${esc(pname(id))}</span>
+            <span class="mr-name">${esc(pname(id))}${PENCIL}</span>
             <span class="money ${net[id] > 0 ? 'pos' : net[id] < 0 ? 'neg' : ''}">${fmtMoney(net[id] || 0, g.currency)}</span>
-          </div>`).join('')}
+          </button>`).join('')}
       </div>`).join('')}
+  </div>`;
+}
+
+const PENCIL = '<svg class="mr-edit" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.3 2.3a1.6 1.6 0 0 1 2.3 2.3l-8 8-3.1.8.8-3.1z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>';
+
+// Bombs get counted the moment they land, so nobody has to remember them when the hand
+// ends. The count rides along on the game and fills in the hand sheet.
+const liveOf = g => g.live ?? { bombs: 0, jokers: false };
+function bombLive(g) {
+  const live = liveOf(g);
+  const x = 2 ** live.bombs * (live.jokers ? 4 : 1);
+  return `<div class="bomb-live">
+    <div class="bl-head"><span>${tr('bombsThisHand')}</span><span class="bomb-x ${x > 1 ? 'on' : ''}">${tr('paysX', x)}</span></div>
+    <div class="bl-row">
+      <button class="mini-step" data-action="live-bomb" data-d="-1" ${live.bombs ? '' : 'disabled'} aria-label="${tr('fewerBombs')}">−</button>
+      <button class="bomb-btn ${live.bombs ? 'on' : ''}" data-action="live-bomb" data-d="1" ${live.bombs >= 8 ? 'disabled' : ''} aria-label="${tr('moreBombs')}">
+        <span aria-hidden="true">💣</span>${tr('bombBtn')}<b class="bomb-n">${live.bombs}</b>
+      </button>
+      <button class="chip jokers ${live.jokers ? 'on' : ''}" data-action="live-jokers">${tr('jokersChip')}</button>
+    </div>
   </div>`;
 }
 
@@ -755,10 +781,19 @@ function newDraft(teams) {
     rules: { aPassWith14: false, aMaxFails: 3 },
     start: { levels: [0, 0], declarer: null },
     advanced: false,
-    guest: !teams,                       // quick game (the default): typed names, nothing saved
+    guest: !teams && guestPref(),        // quick game (the default): typed names, nothing saved
     guestNames: [['', ''], ['', '']],
     ...zhuanPrefs(),                     // 转蛋 stake and currency
   };
+}
+
+// Quick game or tracked: remembered from the mode picker or the setup screen.
+const GUEST_KEY = 'guandan-counter/quick';
+function guestPref() {
+  try { return localStorage.getItem(GUEST_KEY) !== '0'; } catch (e) { return true; }
+}
+function setGuestPref(on) {
+  try { localStorage.setItem(GUEST_KEY, on ? '1' : '0'); } catch (e) { /* ignore */ }
 }
 
 // Quick-game seats aren't real players; the name rides along in the id.
@@ -1261,7 +1296,7 @@ function renderSheet() {
     return;
   }
   delete root.dataset.leaving;
-  const body = { deal: sheetDeal, menu: sheetMenu, adjust: sheetAdjust, pick: sheetPick, confirm: sheetConfirm, rename: sheetRename, pairing: sheetPairing, settle: sheetSettle }[s.type]();
+  const body = { deal: sheetDeal, menu: sheetMenu, adjust: sheetAdjust, pick: sheetPick, confirm: sheetConfirm, rename: sheetRename, seatname: sheetSeatName, pairing: sheetPairing, settle: sheetSettle }[s.type]();
   root.innerHTML = `
     <div class="backdrop ${ui.sheetIsNew ? 'enter' : ''}" data-action="close-sheet"></div>
     <div class="sheet ${ui.sheetIsNew ? 'enter' : ''}" role="dialog" aria-modal="true">
@@ -1412,6 +1447,19 @@ function sheetPick() {
     <button class="btn subtle full" data-action="close-sheet">${tr('cancel')}</button>`;
 }
 
+// Quick-game seats: the name lives in the seat's id, so renaming rewrites the id everywhere.
+function sheetSeatName() {
+  const s = ui.sheet;
+  return `
+    <h2>${tr('editName')}</h2>
+    <form class="add-form" data-form="rename-seat" data-id="${esc(s.pid)}">
+      <label class="sr" for="seat-name">${tr('name')}</label>
+      <input id="seat-name" name="name" value="${esc(pname(s.pid))}" autocomplete="off" maxlength="20" required>
+      <button class="btn ink">${tr('save')}</button>
+    </form>
+    <button class="btn subtle full" data-action="close-sheet">${tr('cancel')}</button>`;
+}
+
 function sheetRename() {
   const p = findPlayer(ui.sheet.playerId);
   return `
@@ -1480,6 +1528,19 @@ function afterRender() {
 }
 
 // After a 转蛋 hand: winners' totals pop green with the amount floating up, losers' dip red.
+function bombBurst() {
+  const btn = document.querySelector('.board .bomb-btn');
+  if (!btn || reducedMotion()) return;
+  btn.animate(
+    [{ transform: 'scale(1)' }, { transform: 'scale(1.06) rotate(-1.5deg)', offset: 0.25 }, { transform: 'scale(.98) rotate(1deg)', offset: 0.55 }, { transform: 'scale(1)' }],
+    { duration: 380, easing: 'cubic-bezier(.23, 1, .32, 1)' },
+  );
+  btn.querySelector('.bomb-n')?.animate(
+    [{ transform: 'scale(.6)' }, { transform: 'scale(1.25)', offset: 0.45 }, { transform: 'scale(1)' }],
+    { duration: 420, easing: 'cubic-bezier(.23, 1, .32, 1)' },
+  );
+}
+
 function afterRenderZhuan(g) {
   const net = zhuanTotals(g);
   const prev = ui.shown;
@@ -1760,6 +1821,7 @@ const ACTION_SOUND = {
   'shuffle-teams': 'flip', 'swap-teams': 'flip', 'pick-player': 'pop',
   'zdeal-save': null, 'pairing-open': 'open', 'settle-open': 'open', 'pairing-pick': 'flip', 'finish-zhuan': 'chip',
   'jokers-toggle': 'pop', 'pick-mode': 'open', 'choose-mode': 'chip',
+  'live-bomb': null, 'live-jokers': null, 'rename-seat': 'open',
   'toggle-sound': null, 'toggle-lang': 'flip',
 };
 
@@ -1785,7 +1847,8 @@ const actions = {
   record({ team }) {
     const g = activeGame();
     if (isZhuan(g)) {
-      openSheet({ type: 'deal', gameId: g.id, winner: +team, firstOut: null, teams: g.teams.map(t => t.slice()), bombs: 0, jokers: false });
+      const live = liveOf(g);
+      openSheet({ type: 'deal', gameId: g.id, winner: +team, firstOut: null, teams: g.teams.map(t => t.slice()), bombs: live.bombs, jokers: live.jokers });
       return;
     }
     openSheet({ type: 'deal', gameId: g.id, winner: +team, firstOut: null });
@@ -1805,7 +1868,33 @@ const actions = {
       return;
     }
     const amt = handAmount(g, fields);
-    mutate(tr('pairWins', teamNames(fields.teams[fields.winner]), fmtMoney(amt, g.currency)), () => g.deals.push({ id: uid(), at: Date.now(), ...fields }));
+    mutate(tr('pairWins', teamNames(fields.teams[fields.winner]), fmtMoney(amt, g.currency)), () => {
+      g.deals.push({ id: uid(), at: Date.now(), ...fields });
+      delete g.live;
+    });
+  },
+  'live-bomb'({ d }) {
+    const g = activeGame();
+    if (!g) return;
+    const live = (g.live = liveOf(g));
+    live.bombs = Math.min(8, Math.max(0, live.bombs + +d));
+    save();
+    render();
+    sound.play(+d > 0 ? 'boom' : 'undo');
+    if (+d > 0) bombBurst();
+  },
+  'live-jokers'() {
+    const g = activeGame();
+    if (!g) return;
+    const live = (g.live = liveOf(g));
+    live.jokers = !live.jokers;
+    save();
+    render();
+    if (live.jokers) { sound.play('boom'); bombBurst(); } else sound.play('undo');
+  },
+  'rename-seat'({ id }) {
+    if (findPlayer(id)) return openSheet({ type: 'rename', playerId: id });
+    openSheet({ type: 'seatname', gameId: activeGame().id, pid: id });
   },
   'pairing-open'() { openSheet({ type: 'pairing', gameId: activeGame().id }); },
   'pairing-pick'({ i }) {
@@ -1872,7 +1961,11 @@ const actions = {
   'undo-deal'() {
     const g = activeGame();
     if (!g?.deals.length) return;
-    mutate(tr('tookBack'), () => g.deals.pop());
+    mutate(tr('tookBack'), () => {
+      const d = g.deals.pop();
+      // 转蛋: the hand's bombs go back on the counter, ready to record it again
+      if (isZhuan(g) && (d.bombs || d.jokers)) g.live = { bombs: d.bombs || 0, jokers: Boolean(d.jokers) };
+    });
   },
   'game-menu'() { openSheet({ type: 'menu' }); },
   'adjust-open'() {
@@ -1946,7 +2039,7 @@ const actions = {
   },
   'stake-pick'({ v }) { ui.draft.stake = +v; render(); },
   'currency-pick'({ c }) { ui.draft.currency = c; render(); },
-  'draft-mode'({ guest }) { ui.draft.guest = guest === '1'; render(); },
+  'draft-mode'({ guest }) { ui.draft.guest = guest === '1'; setGuestPref(ui.draft.guest); render(); },
   'shuffle-teams'() {
     const key = ui.draft.guest ? 'guestNames' : 'teams';
     const all = ui.draft[key].flat();
@@ -2065,8 +2158,18 @@ const actions = {
 
   // mode: 掼蛋 or 转蛋
   'pick-mode'() { showModePicker(); },
+  'pick-guest'({ guest }) {
+    const on = guest === '1';
+    setGuestPref(on);
+    if (ui.draft) ui.draft.guest = on;
+    const el = document.getElementById('mode-pick');
+    el?.querySelectorAll('[data-action="pick-guest"]').forEach(b => b.classList.toggle('on', b.dataset.guest === guest));
+    const note = el?.querySelector('.mp-note');
+    if (note) note.textContent = tr(on ? 'pickGuestDesc' : 'pickSavedDesc');
+  },
   'choose-mode'({ mode }) {
     setMode(mode);
+    if (ui.draft && !activeGame()) ui.draft.guest = guestPref();
     hideModePicker();
     ui.tab = 'play';
     ui.gameId = null;
@@ -2132,6 +2235,27 @@ const forms = {
     if (!id || !ui.sheet) return;
     ui.draft.teams[ui.sheet.team][ui.sheet.seat] = id;
     closeSheet();
+  },
+  'rename-seat'(fd, form) {
+    const g = findGame(ui.sheet?.gameId);
+    const old = form.dataset.id;
+    const name = String(fd.get('name')).trim().replace(/\s+/g, ' ').replace(/\|/g, '/');
+    if (!g || !name || name === pname(old)) return closeSheet();
+    if (g.seats.some(id => id !== old && pname(id).toLowerCase() === name.toLowerCase())) {
+      sound.play('nope');
+      return toast(tr('alreadyAtTable', name));
+    }
+    const nid = `guest|${old.split('|')[1]}|${name}`;
+    const swap = id => (id === old ? nid : id);
+    ui.sheet = null;
+    mutate(tr('nowPlayingAs', name), () => {
+      g.seats = g.seats.map(swap);
+      g.teams = g.teams.map(t => t.map(swap));
+      for (const d of g.deals) {
+        d.teams = d.teams.map(t => t.map(swap));
+        d.firstOut = d.firstOut && swap(d.firstOut);
+      }
+    });
   },
   'rename-player'(fd, form) {
     const p = findPlayer(form.dataset.id);
@@ -2224,6 +2348,13 @@ function showModePicker() {
   el.innerHTML = `
     <div class="mp-inner">
       <h2 class="mp-title">${tr('pickModeTitle')}</h2>
+      <div class="mp-kind">
+        <div class="seg mp-seg">
+          <button class="${guestPref() ? 'on' : ''}" data-action="pick-guest" data-guest="1">${tr('modeGuest')}</button>
+          <button class="${guestPref() ? '' : 'on'}" data-action="pick-guest" data-guest="0">${tr('modeSaved')}</button>
+        </div>
+        <p class="mp-note">${tr(guestPref() ? 'pickGuestDesc' : 'pickSavedDesc')}</p>
+      </div>
       <button class="mode-card ${ui.mode === 'normal' ? 'last' : ''}" data-action="choose-mode" data-mode="normal">
         <span class="mc-cards" aria-hidden="true">${playingCard(0, 0, 'sm')}${playingCard(ACE, 1, 'sm')}</span>
         <span class="mc-text"><b>${tr('modeNormal')}</b><span>${tr('modeNormalSub')}</span></span>
@@ -2237,7 +2368,7 @@ function showModePicker() {
   document.body.classList.add('sheet-open');
   if (reducedMotion()) return;
   el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260, easing: 'ease-out' });
-  [el.querySelector('.mp-title'), ...el.querySelectorAll('.mode-card')].forEach((n, i) => n.animate(
+  [el.querySelector('.mp-title'), el.querySelector('.mp-kind'), ...el.querySelectorAll('.mode-card')].forEach((n, i) => n.animate(
     [{ opacity: 0, transform: 'translateY(24px) scale(.97)' }, { opacity: 1, transform: 'none' }],
     { duration: 420, delay: 80 + i * 90, easing: 'cubic-bezier(.23, 1, .32, 1)', fill: 'backwards' },
   ));

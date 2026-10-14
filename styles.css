@@ -381,7 +381,10 @@ h2 { font-size: 20px; font-weight: 700; margin-bottom: 10px; }
   box-shadow: 0 2px 6px rgba(0, 0, 0, .25);
 }
 .money-row .avatar { width: 30px; height: 30px; font-size: 14px; background: var(--paper-2); color: var(--ink); box-shadow: none; }
-.mr-name { font-weight: 600; font-size: 15px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mr-name { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; font-size: 15px; max-width: 100%; overflow: hidden; white-space: nowrap; }
+.mr-edit { width: 13px; height: 13px; flex-shrink: 0; color: #8a857a; }
+button.money-row { width: 100%; font: inherit; text-align: center; transition: transform 140ms var(--ease-out); }
+button.money-row:active { transform: scale(.97); }
 .money-row .money { font-size: 24px; line-height: 1.1; color: var(--ink); }
 .money-row .money.pos { color: #0a7a4f; }
 .money-row .money.neg { color: var(--card-red); }
@@ -393,6 +396,28 @@ h2 { font-size: 20px; font-weight: 700; margin-bottom: 10px; }
 .float-money.neg { color: var(--card-red); }
 .stake-pill { padding: 3px 10px; border-radius: 10px; background: var(--accent-tint); color: var(--accent); font-weight: 600; font-size: 15px; }
 .zhuan-tools .btn { flex: 1 1 140px; }
+
+/* bombs counted during the hand: one big tap per bomb, − to take one back */
+.bomb-live { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: var(--radius); background: var(--surface); }
+.bl-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; font-weight: 600; color: var(--label-2); }
+.bomb-x { font-variant-numeric: tabular-nums; }
+.bomb-x.on { color: var(--gold-text); }
+.bl-row { display: flex; align-items: center; gap: 10px; }
+.bomb-btn {
+  flex: 1; min-height: 52px; padding: 0 8px 0 18px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  border-radius: 999px; background: var(--fill); color: var(--label);
+  font-size: 18px; font-weight: 700;
+  transition: transform 140ms var(--ease-out), background-color 180ms ease;
+}
+.bomb-btn:active:not(:disabled) { transform: scale(.96); }
+.bomb-n {
+  min-width: 30px; height: 30px; padding: 0 8px; border-radius: 15px; margin-left: auto;
+  display: inline-grid; place-items: center;
+  background: var(--label-2); color: var(--surface); font-size: 16px; font-variant-numeric: tabular-nums;
+}
+.bomb-btn.on .bomb-n { background: var(--gold); color: #3a2800; }
+.bomb-live .chip.jokers { margin-left: 0; min-height: 52px; border-radius: 26px; }
 
 /* hand sheet: bombs and jokers, then ×1 ×2 ×3 with the amount each */
 .bomb-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -439,17 +464,23 @@ h2 { font-size: 20px; font-weight: 700; margin-bottom: 10px; }
   position: fixed; inset: 0; z-index: 50;
   display: grid; place-items: center;
   padding: max(24px, env(safe-area-inset-top)) 20px max(24px, env(safe-area-inset-bottom));
-  background: radial-gradient(ellipse 120% 80% at 50% 0%, var(--felt-hi) 0%, var(--felt) 55%, var(--felt-lo) 100%);
+  background: radial-gradient(ellipse 120% 70% at 50% 30%, #2b3f5f 0%, #1f2f4a 50%, #151f33 100%), #1f2f4a;
   color: var(--on-felt);
   overflow-y: auto;
 }
+/* quick game or tracked, as an iOS segmented control on the navy */
+.mp-kind { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-bottom: 4px; }
+.mp-seg { width: 100%; max-width: 340px; background: rgba(255, 255, 255, .1); }
+.mp-seg button { color: var(--on-felt); }
+.mp-seg button.on { background: rgba(255, 255, 255, .24); box-shadow: 0 1px 3px rgba(0, 0, 0, .25); }
+.mp-note { margin: 0; font-size: 15px; color: var(--on-felt-muted); text-align: center; }
 .mp-inner { width: 100%; max-width: 460px; display: flex; flex-direction: column; gap: 14px; }
 .mp-title { font-size: 28px; font-weight: 700; text-align: center; margin-bottom: 6px; }
 .mode-card {
   display: flex; align-items: center; gap: 16px;
   padding: 18px; border-radius: 22px; text-align: left;
-  background: rgba(0, 0, 0, .22); color: var(--on-felt);
-  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .12);
+  background: rgba(255, 255, 255, .07); color: var(--on-felt);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12);
   transition: transform 160ms var(--ease-out), background-color 160ms ease;
 }
 .mode-card:active { transform: scale(.97); }
@@ -473,7 +504,7 @@ h2 { font-size: 20px; font-weight: 700; margin-bottom: 10px; }
 .mode-btn span { color: var(--accent); }
 
 @media (hover: hover) and (pointer: fine) {
-  .mode-card:hover { background: rgba(0, 0, 0, .3); }
+  .mode-card:hover { background: rgba(255, 255, 255, .12); }
 }
 
 .badge {
@@ -896,7 +927,15 @@ tr[data-action]:active td { background: var(--fill); }
     background: radial-gradient(ellipse 120% 90% at 50% 0%, var(--felt-hi) 0%, var(--felt) 55%, var(--felt-lo) 100%), var(--felt);
   }
   .board { display: contents; }
-  .board > :not(.status):not(.teams):not(.money-board), .play-grid > .log { display: none; }
+  .board > :not(.status):not(.teams):not(.money-board):not(.bomb-live), .play-grid > .log { display: none; }
+  .board > .bomb-live { flex: none; flex-direction: row; align-items: center; gap: 12px; padding: 0; background: none; }
+  .board > .bomb-live .bl-head { color: var(--on-felt-muted); flex-direction: column; gap: 0; font-size: 13px; }
+  .board > .bomb-live .bomb-x.on { color: var(--gold); }
+  .board > .bomb-live .bl-row { flex: 1; }
+  .board > .bomb-live .bomb-btn, .board > .bomb-live .chip.jokers { min-height: 46px; }
+  .board > .bomb-live .bomb-btn, .board > .bomb-live .mini-step, .board > .bomb-live .chip.jokers:not(.on) { background: rgba(255, 255, 255, .12); color: var(--on-felt); }
+  .board > .bomb-live .bomb-n { background: rgba(255, 255, 255, .25); color: var(--on-felt); }
+  .board > .bomb-live .bomb-btn.on .bomb-n { background: var(--gold); color: #3a2800; }
   .board > .status { flex: none; font-size: 17px; }
   .board > .status .playing b { color: var(--gold); }
   .board > .status.champ { font-size: 24px; }

@@ -1309,10 +1309,10 @@ function sheetZhuanDeal() {
   const editing = Boolean(s.dealId);
   const amount = mult => handAmount(g, { mult, bombs: s.bombs, jokers: s.jokers });
   return `
-    <h2>${tr(editing ? 'fixHand' : 'niceHand')}</h2>
+    ${editing ? `<h2>${tr('fixHand')}</h2>
     <div class="seg big-seg">
       ${[0, 1].map(t => `<button class="t${t} ${w === t ? 'on' : ''}" data-action="deal-winner" data-team="${t}">${SUIT[t]} ${esc(teamNames(s.teams[t]))}</button>`).join('')}
-    </div>
+    </div>` : wonTitle(w, esc(teamNames(s.teams[w])))}
     <div class="chip-row">
       ${s.teams[w].map(id => `<button class="chip ${s.firstOut === id ? 'on' : ''}" data-action="deal-first" data-id="${id}" aria-label="${tr('whoFirst')}">${tr('outFirstChip', esc(pname(id)))}</button>`).join('')}
     </div>
@@ -1359,6 +1359,10 @@ function sheetSettle() {
     <button class="btn subtle full" data-action="close-sheet">${tr(live ? 'keepPlaying' : 'close')}</button>`;
 }
 
+// A new hand opens for the team that was tapped; to pick the other team, close the sheet
+// and tap theirs. Fixing an old hand keeps the switch, so a hand logged wrong can be moved.
+const wonTitle = (t, who) => `<h2 class="won-title t${t}"><span class="suit">${SUIT[t]}</span>${tr('teamWon', who)}</h2>`;
+
 function sheetDeal() {
   const s = ui.sheet;
   const g = findGame(s.gameId);
@@ -1367,10 +1371,10 @@ function sheetDeal() {
   const editing = Boolean(s.dealId);
 
   return `
-    <h2>${tr(editing ? 'fixHand' : 'niceHand')}</h2>
+    ${editing ? `<h2>${tr('fixHand')}</h2>
     <div class="seg big-seg">
       ${[0, 1].map(t => `<button class="t${t} ${w === t ? 'on' : ''}" data-action="deal-winner" data-team="${t}">${SUIT[t]} ${tr('teamWon', teamName(t))}</button>`).join('')}
-    </div>
+    </div>` : wonTitle(w, teamName(w))}
     <p class="label">${tr('whoFirst')} <span class="muted">${tr('optional')}</span></p>
     <div class="chip-row">
       ${g.teams[w].map(id => `<button class="chip ${s.firstOut === id ? 'on' : ''}" data-action="deal-first" data-id="${id}">${esc(pname(id))}</button>`).join('')}

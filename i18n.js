@@ -144,7 +144,6 @@ const STRINGS = {
 
     // sheets
     fixHand: 'Fix this hand',
-    niceHand: 'Nice hand!',
     whoFirst: 'Who went out first?',
     optional: 'Optional, for stats',
     deleteHand: 'Delete this hand',
@@ -401,7 +400,6 @@ const STRINGS = {
 
     // sheets
     fixHand: '修改这一局',
-    niceHand: '打得好！',
     whoFirst: '谁是头游？',
     optional: '选填，用于统计',
     deleteHand: '删除这一局',

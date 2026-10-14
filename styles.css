@@ -741,6 +741,8 @@ tr[data-action]:active td { background: var(--fill); }
 .sheet .chip { background: var(--cell); }
 .sheet .chip.on { background: var(--accent); color: var(--on-accent); }
 .sheet .seg { background: var(--fill); }
+.won-title.t0 { color: var(--red-text); }
+.won-title.t1 { color: var(--blue-text); }
 .sheet .add-form input { background: var(--cell); }
 
 .label { font-weight: 600; font-size: 15px; color: var(--label); margin-top: 4px !important; }
@@ -890,10 +892,8 @@ tr[data-action]:active td { background: var(--fill); }
 }
 
 /* ---------- phone turned sideways: short and wide ----------
-   The tab bar becomes a rail down the left side and the header shrinks to one line. The
-   play screen becomes the table, full screen: the two level cards (or everyone's money in
-   转蛋) with the "who won" buttons underneath. Undo rides on the toast after each hand;
-   turning the phone upright brings back the hand list, partners and settle up. */
+   The tab bar becomes a rail down the left side and the header shrinks to one line. (The
+   play screen's full-screen table is shared with tablets; see the next block.) */
 
 @media (orientation: landscape) and (max-height: 520px) {
   :root { --rail: 64px; }
@@ -907,8 +907,6 @@ tr[data-action]:active td { background: var(--fill); }
     flex-direction: column;
   }
   #tabs button { flex: none; height: 58px; }
-  /* up top, so it never covers the "who won" buttons */
-  #toast { top: max(8px, env(safe-area-inset-top)); bottom: auto; transform: translate(-50%, -16px) scale(.96); }
   .start-bar { bottom: calc(env(safe-area-inset-bottom) + 10px); }
 
   /* one-line header: tools on both ends, a smaller title in between */
@@ -922,11 +920,35 @@ tr[data-action]:active td { background: var(--fill); }
 
   .pcard-wrap { --w: clamp(70px, 24vh, 116px); margin: 6px auto 4px; }
 
-  /* play: the table, full screen and easy to read from across the room. It sits above the
-     tab rail; sheets, the toast and confetti still sit above it. */
+
+  /* new game: the card fan sits beside the title instead of above it */
+  .hero { display: grid; grid-template-columns: auto minmax(0, 34ch); justify-content: center; align-items: center; column-gap: 28px; text-align: left; padding: 6px 0 0; }
+  .hero .fan { grid-row: span 2; height: 84px; transform: scale(.78); margin: -12px 0; }
+  .hero-title { margin: 0; font-size: 24px; }
+  .hero p { margin: 4px 0 0; }
+
+  /* mode picker: the two choices side by side */
+  .mp-inner { max-width: 780px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .mp-title { grid-column: 1 / -1; font-size: 24px; margin: 0; }
+
+  /* sheets: a little tighter so a whole hand fits on screen */
+  .sheet { max-height: calc(100dvh - 16px); gap: 10px; }
+  .gain-btn { min-height: 64px; }
+  .big-seg button { min-height: 40px; }
+  .tiles { grid-template-columns: repeat(4, 1fr); }
+}
+
+/* ---------- sideways play: the table, full screen ----------
+   Phones turned sideways and touch tablets (iPad) in landscape: the play screen becomes the
+   two level cards (or everyone's money in 转蛋), centered and big enough to read from across
+   the room, with the way to record a hand underneath. It sits above the tabs; sheets, the
+   toast and confetti still sit above it. Turning upright brings back the hands and tools. */
+@media (orientation: landscape) and (max-height: 520px), (orientation: landscape) and (pointer: coarse) {
+  /* up top, so it never covers the "who won" buttons */
+  #toast { top: max(8px, env(safe-area-inset-top)); bottom: auto; transform: translate(-50%, -16px) scale(.96); }
   .play-grid {
     position: fixed; inset: 0; z-index: 15;
-    display: flex; flex-direction: column; justify-content: center; gap: 6px;
+    display: flex; flex-direction: column; justify-content: center; align-items: stretch; gap: 6px;
     padding: max(10px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
     --label-2: var(--on-felt-muted);
     color: var(--on-felt);
@@ -963,6 +985,7 @@ tr[data-action]:active td { background: var(--fill); }
   .board > .bomb-live .bomb-btn.on .bomb-n { background: var(--gold); color: #3a2800; }
   .board > .status { flex: none; font-size: 17px; }
   .board > .status .playing b { color: var(--gold); }
+  .board > .status .stake-pill { background: rgba(255, 255, 255, .14); color: var(--on-felt); }
   .board > .status.champ { font-size: 24px; }
   .board > .status.champ small { display: none; }
   .board > .status.champ .crown { display: none; }
@@ -987,22 +1010,39 @@ tr[data-action]:active td { background: var(--fill); }
   @media (max-width: 800px) {
     .board > .bomb-live .bl-head { display: none; }
   }
+}
 
-  /* new game: the card fan sits beside the title instead of above it */
-  .hero { display: grid; grid-template-columns: auto minmax(0, 34ch); justify-content: center; align-items: center; column-gap: 28px; text-align: left; padding: 6px 0 0; }
-  .hero .fan { grid-row: span 2; height: 84px; transform: scale(.78); margin: -12px 0; }
-  .hero-title { margin: 0; font-size: 24px; }
-  .hero p { margin: 4px 0 0; }
-
-  /* mode picker: the two choices side by side */
-  .mp-inner { max-width: 780px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .mp-title { grid-column: 1 / -1; font-size: 24px; margin: 0; }
-
-  /* sheets: a little tighter so a whole hand fits on screen */
-  .sheet { max-height: calc(100dvh - 16px); gap: 10px; }
-  .gain-btn { min-height: 64px; }
-  .big-seg button { min-height: 40px; }
-  .tiles { grid-template-columns: repeat(4, 1fr); }
+/* the same table on a big tablet: everything scaled up to fill the screen */
+@media (orientation: landscape) and (pointer: coarse) and (min-height: 600px) {
+  .play-grid { padding: max(24px, env(safe-area-inset-top)) max(40px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(40px, env(safe-area-inset-left)); gap: 16px; }
+  .play-grid.zhuan { column-gap: 40px; row-gap: 16px; }
+  .board > .status { font-size: 24px; gap: 8px 20px; }
+  .board > .status .wild-card { font-size: 21px; padding: 3px 9px; }
+  .board > .status .stake-pill { font-size: 20px; padding: 5px 14px; border-radius: 14px; }
+  .board > .status.champ { font-size: 36px; }
+  .board > .teams { gap: 40px; }
+  .board > .teams .team { padding: 14px 16px; border-radius: 24px; }
+  .board > .teams .team-head { font-size: 30px; }
+  .board > .teams .team-players { font-size: 21px; }
+  .board > .teams .team-meta { top: 16px; right: 18px; }
+  .board > .teams .badge { font-size: 17px; padding: 6px 14px; border-radius: 16px; }
+  .board > .teams .pcard-wrap { --w: min(calc((100dvh - 230px) * 5 / 7), 34vw); margin: 12px auto 4px; }
+  .board > .tap-hint { font-size: 20px; }
+  .board > .money-board { gap: 40px; }
+  .board > .money-board .money-team { gap: 16px; padding: 18px; border-radius: 24px; }
+  .board > .money-board .team-head { font-size: 30px; }
+  .board > .money-board .money-row { border-radius: 22px; gap: 6px; }
+  .board > .money-board .mr-name { font-size: 26px; }
+  .board > .money-board .mr-edit { width: 18px; height: 18px; }
+  .board > .money-board .money-row .money { font-size: clamp(44px, 9vh, 96px); }
+  .board > .money-board .float-money { font-size: 28px; right: 16px; top: 12px; }
+  .board > .record .chip-btn { min-height: 80px; font-size: 26px; border-radius: 28px; }
+  .board > .record .chip-btn::before { border-radius: 22px; }
+  .board > .bomb-live .bl-head { font-size: 17px; }
+  .board > .bomb-live .bomb-btn, .board > .bomb-live .chip.jokers { min-height: 80px; font-size: 22px; border-radius: 40px; }
+  .board > .bomb-live .mini-step { width: 60px; height: 60px; font-size: 30px; }
+  .board > .bomb-live .bomb-n { min-width: 40px; height: 40px; border-radius: 20px; font-size: 20px; }
+  .board > .actions-row .btn { min-height: 72px; font-size: 22px; }
 }
 
 @media (hover: hover) and (pointer: fine) {

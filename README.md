@@ -14,7 +14,7 @@ Shuffle up and have fun! 🃏
 
 - **Two ways to play.** After the opening animation, pick **掼蛋 Guandan** (climb from 2 to A) or **转蛋 Zhuandan** (always on 2, play for money), and choose **Quick game** (nothing saved) or **Track stats** right there. Switch any time with the mode button at the top of the Play screen.
 - **Big playing-card scoreboard.** Each team's level shows as a card you can read from across the table. It flips over every time a team climbs.
-- **Super simple scoring.** Tap the winning team's card, then tap **+1**, **+2** or **+3**. That's it! The app handles the rules on A for you.
+- **Super simple scoring.** Tap the winning team's card, then tap **+1**, **+2** or **+3**. That's it! Tapped the wrong card? Just close the pop-up and tap the other one. The app handles the rules on A for you.
 - **Knows the rules.** Shows whose level is being played and which heart is wild, and handles the "you must win on A" rule. By default a team gets 3 tries at A before dropping back to 2, and you can change house rules like "1-4 counts on A" or "unlimited tries on A".
 - **Mistakes are no big deal.** Undo the last hand, tap any earlier hand to edit or delete it, and every level after it fixes itself.
 - **Quick game or tracked game.** A quick game is the fastest way to start: type four names, or leave them as 1 2 3 4, and play. Nothing is saved. Switch to **Track stats** when you want the game to count.
@@ -26,7 +26,7 @@ Shuffle up and have fun! 🃏
 - **Fun to use.** Card flips, poker-chip buttons, sound effects and a confetti shower when a team wins. Sound can be turned off with the ♪ button.
 - **A tune to open with.** As the chick waddles in, a little melody plays along: a note for every step, a boing for the hop, chimes as the aces fan out and sparkles as the suits light up. iPhones and iPads don't let web apps play sound before the first tap, so there the opening usually plays without music.
 - **Works offline.** Once it's on your Home Screen, it works with no internet connection.
-- **Turn it sideways for the big table.** Turn your phone and the game fills the whole screen: two giant level cards in 掼蛋, or everyone's money in big numbers in 转蛋, easy to read from anywhere around the table. Recording works the same as upright: tap the winning team's card in 掼蛋, or **Red won / Blue won** (next to the bomb counter) in 转蛋. Turn it back upright for the hand list, partners and settle up.
+- **Turn it sideways for the big table.** Turn your phone or iPad and the game fills the whole screen: two giant level cards in 掼蛋, or everyone's money in big numbers in 转蛋, easy to read from anywhere around the table. Recording works the same as upright: tap the winning team's card in 掼蛋, or **Red won / Blue won** (next to the bomb counter) in 转蛋. Turn it back upright for the hand list, partners and settle up.
 
 ## Put it on your iPhone or iPad
 

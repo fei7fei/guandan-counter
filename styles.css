@@ -884,11 +884,9 @@ tr[data-action]:active td { background: var(--fill); }
 
 /* ---------- phone turned sideways: short and wide ----------
    The tab bar becomes a rail down the left side and the header shrinks to one line. The
-   play screen becomes the table alone, full screen: the two level cards, or everyone's
-   money in 转蛋. Turning the phone upright brings back the buttons and the hands. */
-.turn-hint { display: none; }
-/* the little phone in the hint tips upright, then settles back */
-@keyframes turn-upright { 0%, 30% { transform: rotate(90deg); } 55%, 80% { transform: rotate(0deg); } 100% { transform: rotate(90deg); } }
+   play screen becomes the table, full screen: the two level cards (or everyone's money in
+   转蛋) with the "who won" buttons underneath. Undo rides on the toast after each hand;
+   turning the phone upright brings back the hand list, partners and settle up. */
 
 @media (orientation: landscape) and (max-height: 520px) {
   :root { --rail: 64px; }
@@ -902,7 +900,8 @@ tr[data-action]:active td { background: var(--fill); }
     flex-direction: column;
   }
   #tabs button { flex: none; height: 58px; }
-  #toast { bottom: calc(env(safe-area-inset-bottom) + 14px); }
+  /* up top, so it never covers the "who won" buttons */
+  #toast { top: max(8px, env(safe-area-inset-top)); bottom: auto; transform: translate(-50%, -16px) scale(.96); }
   .start-bar { bottom: calc(env(safe-area-inset-bottom) + 10px); }
 
   /* one-line header: tools on both ends, a smaller title in between */
@@ -916,8 +915,8 @@ tr[data-action]:active td { background: var(--fill); }
 
   .pcard-wrap { --w: clamp(70px, 24vh, 116px); margin: 6px auto 4px; }
 
-  /* play: the table alone, full screen and easy to read from across the room. It sits above
-     the tab rail; turn the phone upright to record a hand, undo or settle up. */
+  /* play: the table, full screen and easy to read from across the room. It sits above the
+     tab rail; sheets, the toast and confetti still sit above it. */
   .play-grid {
     position: fixed; inset: 0; z-index: 15;
     display: flex; flex-direction: column; justify-content: center; gap: 6px;
@@ -927,12 +926,31 @@ tr[data-action]:active td { background: var(--fill); }
     background: radial-gradient(ellipse 120% 90% at 50% 0%, var(--felt-hi) 0%, var(--felt) 55%, var(--felt-lo) 100%), var(--felt);
   }
   .board { display: contents; }
-  .board > :not(.status):not(.teams):not(.money-board):not(.bomb-live), .play-grid > .log { display: none; }
+  .board > :is(.guest-note, .undo-deal, .zhuan-tools), .play-grid > .log { display: none; }
+  .board > .record, .board > .actions-row { flex: none; }
+  .board > .record .hint { display: none; }
+  .board > .record .chip-btn { min-height: 54px; font-size: 18px; }
+  .board > .record .record-btns { gap: 24px; }
+  .board > .actions-row { flex-wrap: nowrap; gap: 10px; }
+  .board > .actions-row .btn { flex: 1; min-height: 50px; padding: 0 12px; font-size: 16px; }
+  .board > .actions-row .btn:not(.gold) { background: rgba(255, 255, 255, .14); color: var(--on-felt); }
+
+  /* 转蛋: money fills the top; bombs and "who won" share the bottom row */
+  .play-grid.zhuan {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto; align-content: stretch; column-gap: 24px; row-gap: 8px;
+  }
+  .play-grid.zhuan .board > :is(.status, .money-board) { grid-column: 1 / -1; }
+  .play-grid.zhuan .board > .record { align-self: center; }
+  .play-grid.zhuan .board > .record .record-btns { gap: 10px; }
   .board > .bomb-live { flex: none; flex-direction: row; align-items: center; gap: 12px; padding: 0; background: none; }
-  .board > .bomb-live .bl-head { color: var(--on-felt-muted); flex-direction: column; gap: 0; font-size: 13px; }
+  .board > .bomb-live .bl-head { color: var(--on-felt-muted); flex-direction: column; gap: 0; font-size: 13px; white-space: nowrap; }
   .board > .bomb-live .bomb-x.on { color: var(--gold); }
   .board > .bomb-live .bl-row { flex: 1; }
-  .board > .bomb-live .bomb-btn, .board > .bomb-live .chip.jokers { min-height: 46px; }
+  .board > .bomb-live .bl-row { gap: 8px; min-width: 0; }
+  .board > .bomb-live .bomb-btn { min-width: 0; padding-left: 12px; }
+  .board > .bomb-live .bomb-btn, .board > .bomb-live .chip.jokers { min-height: 54px; }
+  .board > .bomb-live .chip.jokers { padding: 0 12px; white-space: nowrap; }
   .board > .bomb-live .bomb-btn, .board > .bomb-live .mini-step, .board > .bomb-live .chip.jokers:not(.on) { background: rgba(255, 255, 255, .12); color: var(--on-felt); }
   .board > .bomb-live .bomb-n { background: rgba(255, 255, 255, .25); color: var(--on-felt); }
   .board > .bomb-live .bomb-btn.on .bomb-n { background: var(--gold); color: #3a2800; }
@@ -947,23 +965,19 @@ tr[data-action]:active td { background: var(--fill); }
   }
   .board > .teams .team { padding: 6px 10px; }
   .board > .teams .team-head { font-size: 20px; }
-  .board > .teams .team-meta { min-height: 24px; }
-  .board > .teams .pcard-wrap { --w: min(calc((100dvh - 172px) * 5 / 7), 34vw); margin: 6px auto; }
+  .board > .teams .team-meta { position: absolute; top: 8px; right: 10px; min-height: 0; }
+  .board > .teams .pcard-wrap { --w: min(calc((100dvh - 196px) * 5 / 7), 30vw); margin: 6px auto 2px; }
   .board > .money-board { align-items: stretch; padding: 4px 0; }
   .board > .money-board .money-team { justify-content: center; gap: 10px; padding: 10px; }
   .board > .money-board .team-head { font-size: 20px; }
   .board > .money-board .money-row { flex: 1; justify-content: center; gap: 2px; padding: 8px 12px; }
   .board > .money-board .money-row .avatar { display: none; }
   .board > .money-board .mr-name { font-size: 18px; }
-  .board > .money-board .money-row .money { font-size: clamp(30px, 11vh, 48px); }
+  .board > .money-board .money-row .money { font-size: clamp(28px, 10vh, 46px); }
   .board > .money-board .float-money { font-size: 20px; }
-  .turn-hint {
-    display: flex; flex: none; align-items: center; justify-content: center; gap: 8px; margin: 0;
-    font-size: 14px; font-weight: 600; color: var(--on-felt-muted);
-  }
-  .turn-hint .phone {
-    width: 10px; height: 16px; border: 2px solid currentColor; border-radius: 3px;
-    transform: rotate(90deg); animation: turn-upright 2.4s var(--ease-out) infinite;
+  /* a narrow phone has no room for the bomb label; the hand sheet still shows the payout */
+  @media (max-width: 800px) {
+    .board > .bomb-live .bl-head { display: none; }
   }
 
   /* new game: the card fan sits beside the title instead of above it */
@@ -990,7 +1004,6 @@ tr[data-action]:active td { background: var(--fill); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .turn-hint .phone { animation: none; }
   .backdrop.enter, .sheet.enter, .fan.deal-in .pcard-wrap { animation: none; }
   #toast { transition: opacity 200ms ease; }
 }

@@ -52,14 +52,11 @@ const STRINGS = {
     backTo2: tm => `${tm} back to 2`,
     outFirst: name => `${name} out first`,
     tapToFix: 'Tap any hand to fix it.',
-    turnUpright: 'Turn upright to record a hand',
     bombsThisHand: 'Bombs this hand',
     bombBtn: 'Bomb!',
     paysX: x => `Pays ×${x}`,
     pickGuestDesc: 'Just play. Nothing is saved.',
     pickSavedDesc: 'Saved to history and stats.',
-    turnUprightDone: 'Turn upright for a new game',
-    turnUprightZhuan: 'Turn upright to record a hand or settle up',
 
     // new game
     newGame: 'New game',
@@ -312,14 +309,11 @@ const STRINGS = {
     backTo2: tm => `${tm}打回2`,
     outFirst: name => `${name}头游`,
     tapToFix: '点任意一局就能修改。',
-    turnUpright: '竖过来记录这一局',
     bombsThisHand: '本局炸弹',
     bombBtn: '炸！',
     paysX: x => `翻 ×${x}`,
     pickGuestDesc: '直接开打，不保存记录。',
     pickSavedDesc: '记入历史和统计。',
-    turnUprightDone: '竖过来开新一局',
-    turnUprightZhuan: '竖过来记录这一局或结算',
 
     // new game
     newGame: '新比赛',

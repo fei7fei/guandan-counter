@@ -26,7 +26,7 @@ Shuffle up and have fun! 🃏
 - **Fun to use.** Card flips, poker-chip buttons, sound effects and a confetti shower when a team wins. Sound can be turned off with the ♪ button.
 - **A tune to open with.** As the chick waddles in, a little melody plays along: a note for every step, a boing for the hop, chimes as the aces fan out and sparkles as the suits light up. iPhones and iPads don't let web apps play sound before the first tap, so there the opening usually plays without music.
 - **Works offline.** Once it's on your Home Screen, it works with no internet connection.
-- **Turn it sideways for the big table.** Turn your phone and the game fills the whole screen: two giant level cards in 掼蛋, or everyone's money in big numbers in 转蛋, easy to read from anywhere around the table. Turn it back upright to record a hand, undo or settle up.
+- **Turn it sideways for the big table.** Turn your phone and the game fills the whole screen: two giant level cards in 掼蛋, or everyone's money in big numbers in 转蛋, easy to read from anywhere around the table. The **Red won / Blue won** buttons (and the bomb counter in 转蛋) stay right underneath, so you can keep recording hands sideways. Turn it back upright for the hand list, partners and settle up.
 
 ## Put it on your iPhone or iPad
 

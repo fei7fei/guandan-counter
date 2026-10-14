@@ -634,7 +634,6 @@ function renderPlay() {
         <h2>${tr('hands')}</h2>
         ${dealLog(g, st)}
       </section>
-      ${turnHint(done ? 'turnUprightDone' : 'turnUpright')}
     </div>`;
 }
 
@@ -644,7 +643,7 @@ function renderPlayZhuan(g) {
   const handNo = g.deals.length + 1;
   return `
     ${header(tr('zhuanTitle'), { modeSwitch: true, right: `<button class="icon-btn" data-action="game-menu" aria-label="${tr('gameOptions')}">•••</button>` })}
-    <div class="play-grid">
+    <div class="play-grid zhuan">
       <section class="board">
         <div class="status">
           <span class="deal-no">${tr('handNo', handNo)}</span>
@@ -669,13 +668,7 @@ function renderPlayZhuan(g) {
         <h2>${tr('hands')}</h2>
         ${zhuanLog(g)}
       </section>
-      ${turnHint('turnUprightZhuan')}
     </div>`;
-}
-
-// Only shown with the phone sideways, when the play screen is just the table.
-function turnHint(key) {
-  return `<p class="turn-hint"><span class="phone" aria-hidden="true"></span>${tr(key)}</p>`;
 }
 
 // Two pairs on the felt, each player with their running total.

@@ -12,6 +12,7 @@ Shuffle up and have fun! 🃏
 
 ## What it does
 
+- **Two ways to play.** After the opening animation, pick **掼蛋 Guandan** (climb from 2 to A) or **转蛋 Zhuandan** (always on 2, play for money). Switch any time with the mode button at the top of the Play screen.
 - **Big playing-card scoreboard.** Each team's level shows as a card you can read from across the table. It flips over every time a team climbs.
 - **Super simple scoring.** Tap the team that won, then tap **+1**, **+2** or **+3**. That's it! The app handles the rules on A for you.
 - **Knows the rules.** Shows whose level is being played and which heart is wild, and handles the "you must win on A" rule. By default a team gets 3 tries at A before dropping back to 2, and you can change house rules like "1-4 counts on A" or "unlimited tries on A".
@@ -130,5 +131,31 @@ Tribute doesn't change anyone's level, so you don't record it in the app.
 - Under the usual rule that hand must be a **1-2 or 1-3 finish**. Winning 1-4 doesn't count and you stay on A. Some tables accept any win: choose **Any win counts** in the app's house rules.
 - By default the app gives a team **3 tries at A**. Fail all three and the team drops **back to 2**. Tables that allow endless tries can pick **Missed tries on A → Unlimited**.
 - Win at A and your team takes the whole game. Win it without the other team taking a single hand, and that's **Spring (春天)!**
+
+## Zhuandan (转蛋): always on 2, play for money
+
+Zhuandan uses all the same cards and plays as Guandan, with a few big differences:
+
+- **Every hand is played on 2**, so **♥2 is always wild**. Nobody climbs levels.
+- **There's no tribute** between hands.
+- **Partners can change every hand.** Many tables pair up whoever is dealt the two ♠3s.
+- **Money changes hands after every hand.** You agree on a base amount. The winning pair each collect it, and the losing pair each pay it:
+
+| Winning team finishes | Each winner collects |
+| --- | --- |
+| 1st and 2nd | 3 × base |
+| 1st and 3rd | 2 × base |
+| 1st and 4th | 1 × base |
+
+- **Bombs double it.** Each bomb your table counts doubles the payout, and **all four jokers** multiply it by 4. Tables differ on which bombs count (often 6+ card bombs and straight flushes) and whether both teams' bombs count, so agree before you start.
+
+### Keeping score in the app
+
+1. Pick **Zhuandan**, then choose the **base amount** and the money: **¥ RMB**, **$ CAD** or plain **points**.
+2. After each hand, tap the team that won. Add any bombs with **+**, tap **4 jokers ×4** if they came out, then tap **×1**, **×2** or **×3**. Each button shows how much every winner collects.
+3. Everyone's running total sits on the table. Tap **Change partners** whenever the pairs switch.
+4. Tap **Settle up** to see the totals and **who pays whom**, using the fewest payments possible. **Finish and save** puts the game in History.
+
+Zhuandan games get their own **money leaderboard** in Stats (switch between 掼蛋 and 转蛋 at the top), with each player's net winnings, hands won, and how every partnership does together. Each player's page shows their Zhuandan record too.
 
 Now go deal some cards. Good luck, and may your bombs always land! 💣♠♥♣♦

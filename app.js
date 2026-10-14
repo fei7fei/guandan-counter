@@ -9,7 +9,10 @@ const SUIT = ['♥', '♠'];
 const STORE_KEY = 'guandan-counter/v1';
 const MUTE_KEY = 'guandan-counter/muted';
 const LANG_KEY = 'guandan-counter/lang';
+const MODE_KEY = 'guandan-counter/mode';
+const ZHUAN_KEY = 'guandan-counter/zhuan';         // last stake and currency used in 转蛋
 const DAY = 86400000;
+const CURRENCIES = ['¥', '$', ''];                 // RMB, dollars, plain points
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ---------- language ----------
@@ -77,7 +80,18 @@ const ui = {
   range: 'all',
   shown: null,     // what the play screen last showed, to animate changes
   fanDealt: false,
+  // 'normal' climbs from 2 to A; 'zhuan' (转蛋) stays on 2 and plays for money each hand
+  mode: (() => { try { return localStorage.getItem(MODE_KEY) === 'zhuan' ? 'zhuan' : 'normal'; } catch (e) { return 'normal'; } })(),
+  statsMode: null, // which mode the Stats tab shows; follows ui.mode until changed there
 };
+
+function zhuanPrefs() {
+  try {
+    const p = JSON.parse(localStorage.getItem(ZHUAN_KEY));
+    if (p && typeof p.stake === 'number' && CURRENCIES.includes(p.currency)) return p;
+  } catch (e) { /* ignore */ }
+  return { stake: 10, currency: '¥' };
+}
 
 // ---------- sound ----------
 // Everything is synthesized with Web Audio, so there are no files to load.
@@ -150,6 +164,11 @@ const sound = (() => {
       tone(2100, { dur: 0.05, type: 'square', gain: 0.02 });
     },
     flip: () => noise({ dur: 0.16, gain: 0.14, freq: 600, to: 3000, q: 0.6 }),
+    // a little shower of coins for a 转蛋 payout
+    coins: () => [0, 0.07, 0.15, 0.22].forEach((t, i) => {
+      tone(2637 + i * 220, { t, dur: 0.14, type: 'triangle', gain: 0.06 });
+      tone(3951 + i * 160, { t: t + 0.01, dur: 0.09, type: 'sine', gain: 0.03 });
+    }),
     up: steps => {
       fx.flip();
       for (let i = 0; i <= Math.min(steps, 4); i++) tone(NOTES[i], { t: 0.12 + i * 0.075, dur: 0.22, type: 'triangle', gain: 0.1 });
@@ -269,10 +288,18 @@ const findPlayer = id => data.players.find(p => p.id === id);
 const pname = id => findPlayer(id)?.name ?? guestName(id) ?? tr('unknown');
 const teamNames = team => team.map(pname).join(' & ');
 const findGame = id => data.games.find(g => g.id === id);
+// Each mode keeps its own game in progress, so switching modes never loses a game.
+const isZhuan = g => g?.mode === 'zhuan';
+const activeKey = (mode = ui.mode) => (mode === 'zhuan' ? 'activeZhuanId' : 'activeGameId');
+const activeId = () => data[activeKey()] ?? null;
+const setActive = (id, mode = ui.mode) => { data[activeKey(mode)] = id; };
+const isActiveGame = g => g.id === data.activeGameId || g.id === data.activeZhuanId;
 const activeGame = () => {
-  const g = findGame(data.activeGameId);
-  return g && !g.abandoned ? g : null;
+  const g = findGame(activeId());
+  return g && !g.abandoned && !g.finished ? g : null;
 };
+// Quick games are never kept, except one still being played in the other mode.
+const dropGuestGames = () => { data.games = data.games.filter(g => !g.guest || (isActiveGame(g) && isZhuan(g) !== (ui.mode === 'zhuan'))); };
 const pct = (a, b) => (b ? Math.round((100 * a) / b) + '%' : '-');
 const rank = lv => RANKS[lv];
 const locale = () => (lang === 'zh' ? 'zh-CN' : undefined);
@@ -375,6 +402,91 @@ function outcomeOf(g, st, w, place) {
   return { kind: 'up', to: Math.min(ACE, st.levels[w] + BUMP[place]) };
 }
 
+// ---------- 转蛋 money ----------
+// Every hand is played on 2. The winning pair each collect stake × (3 for 1-2, 2 for 1-3,
+// 1 for 1-4), doubled for each counted bomb and ×4 for four jokers; the losing pair each pay it.
+const round2 = n => Math.round(n * 100) / 100;
+const handAmount = (g, d) => round2(g.stake * d.mult * 2 ** (d.bombs || 0) * (d.jokers ? 4 : 1));
+
+function fmtMoney(n, cur, { sign = true } = {}) {
+  const v = round2(n);
+  const abs = Math.abs(v).toLocaleString(locale(), { maximumFractionDigits: 2 });
+  const s = !sign || v === 0 ? '' : v > 0 ? '+' : '−';
+  return cur ? `${s}${cur}${abs}` : `${s}${abs}`;
+}
+
+// Net per player for one game, in its currency.
+function zhuanTotals(g) {
+  const net = Object.fromEntries(g.seats.map(id => [id, 0]));
+  for (const d of g.deals) {
+    const amt = handAmount(g, d);
+    d.teams.forEach((team, t) => team.forEach(id => { net[id] = round2((net[id] || 0) + (t === d.winner ? amt : -amt)); }));
+  }
+  return net;
+}
+
+// Fewest payments that settle everyone up: biggest debtor pays biggest winner first.
+function settleUp(net) {
+  const owe = Object.entries(net).filter(([, v]) => v < 0).map(([id, v]) => ({ id, v: -v })).sort((a, b) => b.v - a.v);
+  const get = Object.entries(net).filter(([, v]) => v > 0).map(([id, v]) => ({ id, v })).sort((a, b) => b.v - a.v);
+  const out = [];
+  let i = 0, j = 0;
+  while (i < owe.length && j < get.length) {
+    const pay = round2(Math.min(owe[i].v, get[j].v));
+    if (pay > 0) out.push({ from: owe[i].id, to: get[j].id, amount: pay });
+    owe[i].v = round2(owe[i].v - pay);
+    get[j].v = round2(get[j].v - pay);
+    if (owe[i].v <= 0) i++;
+    if (get[j].v <= 0) j++;
+  }
+  return out;
+}
+
+// The three ways four players can split into two pairs; the first player always stays Red.
+function pairings(seats) {
+  const [a, b, c, d] = seats;
+  return [[[a, b], [c, d]], [[a, c], [b, d]], [[a, d], [b, c]]];
+}
+const samePairing = (x, y) => x[0].slice().sort().join() === y[0].slice().sort().join() || x[0].slice().sort().join() === y[1].slice().sort().join();
+
+// Money summed per currency, e.g. { '¥': 120, '$': -15 }.
+function fmtNet(net) {
+  const parts = Object.entries(net).filter(([, v]) => round2(v) !== 0).map(([c, v]) => fmtMoney(v, c));
+  return parts.length ? parts.join(' · ') : '0';
+}
+const netSum = net => Object.values(net).reduce((a, b) => a + b, 0);
+const netClass = net => (netSum(net) > 0 ? 'pos' : netSum(net) < 0 ? 'neg' : '');
+
+function computeZhuanStats(since = 0) {
+  const players = {}, pairs = {};
+  const blank = () => ({ games: 0, hands: 0, handWins: 0, doubles: 0, firstOuts: 0, net: {} });
+  for (const g of data.games) {
+    if (!isZhuan(g) || g.guest || g.createdAt < since || !g.deals.length) continue;
+    const cur = g.currency;
+    for (const id of g.seats) (players[id] ??= blank()).games++;
+    for (const d of g.deals) {
+      const amt = handAmount(g, d);
+      d.teams.forEach((team, t) => {
+        const won = t === d.winner;
+        const delta = won ? amt : -amt;
+        const ids = [...team].sort();
+        const pr = (pairs[ids.join('|')] ??= { ids, ...blank() });
+        const recs = [pr, ...team.map(id => (players[id] ??= blank()))];
+        for (const r of recs) {
+          r.hands++;
+          if (won) r.handWins++;
+          if (won && d.mult === 3) r.doubles++;
+          r.net[cur] = round2((r.net[cur] || 0) + delta);
+        }
+      });
+      if (d.firstOut && players[d.firstOut]) players[d.firstOut].firstOuts++;
+    }
+  }
+  return { players, pairs };
+}
+
+const byMoney = (a, b) => netSum(b.net) - netSum(a.net) || (b.hands ? b.handWins / b.hands : 0) - (a.hands ? a.handWins / a.hands : 0);
+
 // ---------- stats ----------
 function addInto(a, b) {
   for (const k in b) a[k] = (a[k] || 0) + b[k];
@@ -385,7 +497,7 @@ function computeStats(since = 0) {
   const blank = () => ({ games: 0, wins: 0, deals: 0, dealWins: 0, doubles: 0, firstOuts: 0 });
 
   for (const g of data.games) {
-    if (g.guest || g.createdAt < since) continue;
+    if (g.guest || isZhuan(g) || g.createdAt < since) continue;
     const st = computeState(g);
     const done = st.winner !== null;
     const deals = g.deals.filter((d, i) => d.type !== 'adjust' && !st.steps[i].ignored);
@@ -437,8 +549,9 @@ function render() {
 
 // iOS-style navigation: a slim toolbar row (Back on the leading edge, tools on the trailing
 // edge), then a large left-aligned title.
-function header(title, { back, right = '' } = {}) {
-  const left = back ? `<button class="back" data-action="${back}">${tr('back')}</button>` : '';
+function header(title, { back, right = '', modeSwitch = false } = {}) {
+  const left = back ? `<button class="back" data-action="${back}">${tr('back')}</button>`
+    : modeSwitch ? `<button class="sound-btn mode-btn" data-action="pick-mode" aria-label="${tr('switchMode')}">${tr(ui.mode === 'zhuan' ? 'modeZhuan' : 'modeNormal')} <span>⇄</span></button>` : '';
   const tools = back ? right
     : `<button class="sound-btn ${sound.muted ? 'off' : ''}" data-action="toggle-sound" aria-label="${tr(sound.muted ? 'soundOn' : 'soundOff')}"><span>♪</span>${tr(sound.muted ? 'off' : 'on')}</button>`
       + `<button class="sound-btn lang-btn" data-action="toggle-lang" aria-label="${tr('langAria')}">${tr('langBtn')}</button>${right}`;
@@ -467,6 +580,7 @@ function playingCard(lv, t, size = '') {
 function renderPlay() {
   const g = activeGame();
   if (!g) return renderNewGame();
+  if (isZhuan(g)) return renderPlayZhuan(g);
   const st = computeState(g);
   const done = st.winner !== null;
   const dealNo = g.deals.filter(d => d.type !== 'adjust').length + 1;
@@ -498,7 +612,7 @@ function renderPlay() {
        </div>`;
 
   return `
-    ${header(tr('appTitle'), { right: `<button class="icon-btn" data-action="game-menu" aria-label="${tr('gameOptions')}">•••</button>` })}
+    ${header(tr('appTitle'), { modeSwitch: true, right: `<button class="icon-btn" data-action="game-menu" aria-label="${tr('gameOptions')}">•••</button>` })}
     <div class="play-grid">
       <section class="board">
         ${status}
@@ -512,6 +626,69 @@ function renderPlay() {
         ${dealLog(g, st)}
       </section>
     </div>`;
+}
+
+// ----- Play: 转蛋 -----
+function renderPlayZhuan(g) {
+  const net = zhuanTotals(g);
+  const handNo = g.deals.length + 1;
+  return `
+    ${header(tr('zhuanTitle'), { modeSwitch: true, right: `<button class="icon-btn" data-action="game-menu" aria-label="${tr('gameOptions')}">•••</button>` })}
+    <div class="play-grid">
+      <section class="board">
+        <div class="status">
+          <span class="deal-no">${tr('handNo', handNo)}</span>
+          <span class="wild">${tr('wild', '<span class="wild-card">2<i>♥</i></span>')}</span>
+          <span class="stake-pill">${tr('stakeIs', fmtMoney(g.stake, g.currency, { sign: false }))}</span>
+        </div>
+        ${g.guest ? `<p class="hint center guest-note">${tr('guestBadge')}</p>` : ''}
+        ${moneyBoard(g, g.teams, net)}
+        <div class="record">
+          <div class="record-btns">
+            ${[0, 1].map(t => `<button class="chip-btn t${t}" data-action="record" data-team="${t}"><span>${tr('teamWon', teamName(t))}</span></button>`).join('')}
+          </div>
+        </div>
+        <div class="actions-row zhuan-tools">
+          <button class="btn" data-action="pairing-open">${tr('changePartners')}</button>
+          <button class="btn" data-action="settle-open" ${g.deals.length ? '' : 'disabled'}>${tr('settleUp')}</button>
+        </div>
+        <button class="btn subtle undo-deal" data-action="undo-deal" ${g.deals.length ? '' : 'disabled'}>${tr('undoLast')}</button>
+      </section>
+      <section class="log panel">
+        <h2>${tr('hands')}</h2>
+        ${zhuanLog(g)}
+      </section>
+    </div>`;
+}
+
+// Two pairs on the felt, each player with their running total.
+function moneyBoard(g, teams, net) {
+  return `<div class="money-board">
+    ${[0, 1].map(t => `
+      <div class="money-team t${t}">
+        <div class="team-head"><span class="suit">${SUIT[t]}</span>${teamName(t)}</div>
+        ${teams[t].map(id => `
+          <div class="money-row" data-pid="${esc(id)}">
+            <span class="avatar">${esc(pname(id).slice(0, 1).toUpperCase())}</span>
+            <span class="mr-name">${esc(pname(id))}</span>
+            <span class="money ${net[id] > 0 ? 'pos' : net[id] < 0 ? 'neg' : ''}">${fmtMoney(net[id] || 0, g.currency)}</span>
+          </div>`).join('')}
+      </div>`).join('')}
+  </div>`;
+}
+
+function zhuanLog(g) {
+  if (!g.deals.length) return `<p class="empty">${tr('freshDeckZhuan')}</p>`;
+  const rows = g.deals.map((d, i) => {
+    const amt = handAmount(g, d);
+    const extras = [d.bombs ? `💣×${d.bombs}` : '', d.jokers ? tr('jokersShort') : ''].filter(Boolean).join(' ');
+    return `<li class="deal" data-action="edit-deal" data-game="${g.id}" data-id="${d.id}">
+      <span class="num">${i + 1}</span>
+      <span class="what"><span class="suit t${d.winner}">${SUIT[d.winner]}</span>${esc(teamNames(d.teams[d.winner]))} ×${d.mult}${extras ? ` <span class="muted">${extras}</span>` : ''}${d.firstOut ? `<span class="first">${tr('outFirst', esc(pname(d.firstOut)))}</span>` : ''}</span>
+      <span class="res"><span class="money pos">${tr('eachWins', fmtMoney(amt, g.currency))}</span></span>
+    </li>`;
+  });
+  return `<ol class="deals">${rows.reverse().join('')}</ol><p class="hint small">${tr('tapToFix')}</p>`;
 }
 
 function teamCard(g, st, t, size = '') {
@@ -573,6 +750,7 @@ function newDraft(teams) {
     advanced: false,
     guest: !teams,                       // quick game (the default): typed names, nothing saved
     guestNames: [['', ''], ['', '']],
+    ...zhuanPrefs(),                     // 转蛋 stake and currency
   };
 }
 
@@ -582,7 +760,7 @@ const guestId = (t, s, name) => `guest|${t * 2 + s}|${name.trim() || SEAT_LETTER
 const guestName = id => (id?.startsWith('guest|') ? id.split('|').slice(2).join('|') : null);
 
 function lastGame() {
-  return data.games.filter(g => !g.guest).sort((a, b) => b.createdAt - a.createdAt)[0];
+  return data.games.filter(g => !g.guest && isZhuan(g) === (ui.mode === 'zhuan')).sort((a, b) => b.createdAt - a.createdAt)[0];
 }
 
 function renderNewGame() {
@@ -605,22 +783,43 @@ function renderNewGame() {
 
   const levelSelect = t => `<select data-change="start-level" data-team="${t}">${RANKS.map((r, i) => `<option value="${i}" ${d.start.levels[t] === i ? 'selected' : ''}>${r}</option>`).join('')}</select>`;
 
+  const zhuan = ui.mode === 'zhuan';
   const fan = `<div class="fan ${ui.fanDealt ? '' : 'deal-in'}" aria-hidden="true">
-      ${playingCard(0, 0, 'sm')}${playingCard(ACE, 1, 'sm')}${playingCard(0, 1, 'sm')}
+      ${zhuan ? `${playingCard(0, 1, 'sm')}${playingCard(0, 0, 'sm')}${playingCard(0, 1, 'sm')}`
+              : `${playingCard(0, 0, 'sm')}${playingCard(ACE, 1, 'sm')}${playingCard(0, 1, 'sm')}`}
     </div>`;
   ui.fanDealt = true;
+
+  // 转蛋 has no level rules; its setup is the stake and the currency instead
+  const stakes = `
+      <div class="panel rules">
+        <h2>${tr('stakes')}</h2>
+        <div class="rule">
+          <div><b>${tr('baseStake')}</b></div>
+          <div class="stake-row">
+            <label class="stake-field"><span>${esc(d.currency)}</span><input type="number" inputmode="decimal" min="0" step="any" data-input="stake" value="${d.stake}" aria-label="${tr('baseStake')}"></label>
+            ${[1, 5, 10, 20].map(n => `<button class="chip ${d.stake === n ? 'on' : ''}" data-action="stake-pick" data-v="${n}">${fmtMoney(n, d.currency, { sign: false })}</button>`).join('')}
+          </div>
+        </div>
+        <div class="rule">
+          <div><b>${tr('currency')}</b></div>
+          <div class="seg">
+            ${CURRENCIES.map(c => `<button class="${d.currency === c ? 'on' : ''}" data-action="currency-pick" data-c="${c}">${tr('currencyName')[c || 'pts']}</button>`).join('')}
+          </div>
+        </div>
+      </div>`;
 
   const startBtn = `<button class="btn gold big full" data-action="start-game" ${ready && (!unequal || d.start.declarer !== null) ? '' : 'disabled'}>${tr('letsPlay')}</button>`;
 
   // A quick game needs no setup, so its start button comes first and the names and rules
   // below are optional. A tracked game needs players first, so its button follows the teams.
   return `
-    ${header(tr('newGame'))}
+    ${header(tr(zhuan ? 'newZhuan' : 'newGame'), { modeSwitch: true })}
     <div class="narrow">
       <div class="hero">
         ${fan}
-        <h2 class="hero-title">${tr('heroTitle')}</h2>
-        ${d.guest ? '' : `<p class="muted">${tr('heroSub')}</p>`}
+        <h2 class="hero-title">${tr(zhuan ? 'zhuanHero' : 'heroTitle')}</h2>
+        ${d.guest ? '' : `<p class="muted">${tr(zhuan ? 'zhuanSub' : 'heroSub')}</p>`}
       </div>
       ${d.guest ? `<div class="quick-start">${startBtn}</div>` : ''}
       <div class="seg">
@@ -644,7 +843,7 @@ function renderNewGame() {
       ${!ready ? `<p class="hint center">${tr('pickFour')}</p>` : ''}
       <div class="start-bar">${startBtn}</div>`}
 
-      <div class="panel rules">
+      ${zhuan ? stakes : `<div class="panel rules">
         <h2>${tr('houseRules')}</h2>
         <div class="rule">
           <div><b>${tr('winOnA')}</b><p class="muted">${tr('winOnADesc')}</p></div>
@@ -672,7 +871,7 @@ function renderNewGame() {
               ${[0, 1].map(t => `<button class="${d.start.declarer === t ? 'on' : ''}" data-action="start-decl" data-team="${t}">${teamName(t)}</button>`).join('')}
             </div>
           </div>` : ''}` : ''}
-      </div>
+      </div>`}
     </div>`;
 }
 
@@ -684,14 +883,15 @@ function renderHistory() {
 
   let lastDay = '';
   const items = games.map(g => {
-    const st = computeState(g);
     const day = fmtDate(g.createdAt);
     const dayHead = day !== lastDay ? `<li class="day">${day}</li>` : '';
     lastDay = day;
+    if (isZhuan(g)) return dayHead + zhuanHistoryRow(g);
+    const st = computeState(g);
     const result = st.winner !== null
       ? `<span class="pill t${st.winner}">${tr('teamWon', teamName(st.winner))}</span>`
       : g.abandoned ? `<span class="pill">${tr('endedEarly')}</span>`
-      : `<span class="pill live">${tr(g.id === data.activeGameId ? 'playingNow' : 'unfinished')}</span>`;
+      : `<span class="pill live">${tr(isActiveGame(g) ? 'playingNow' : 'unfinished')}</span>`;
     const deals = g.deals.filter(d => d.type !== 'adjust').length;
     return `${dayHead}<li class="game-row" data-action="open-game" data-id="${g.id}">
       <div class="gr-teams">
@@ -704,7 +904,55 @@ function renderHistory() {
   return `${header(tr('history'))}<div class="narrow"><ul class="list">${items.join('')}</ul></div>`;
 }
 
+function zhuanHistoryRow(g) {
+  const net = zhuanTotals(g);
+  const order = [...g.seats].sort((a, b) => net[b] - net[a]);
+  const status = g.finished ? `<span class="pill zhuan">${tr('modeZhuan')}</span>`
+    : `<span class="pill live">${tr(isActiveGame(g) ? 'playingNow' : 'unfinished')}</span>`;
+  return `<li class="game-row" data-action="open-game" data-id="${g.id}">
+    <div class="gr-money">
+      ${order.map(id => `<span><b>${esc(pname(id))}</b> <span class="money ${net[id] > 0 ? 'pos' : net[id] < 0 ? 'neg' : ''}">${fmtMoney(net[id], g.currency)}</span></span>`).join('')}
+    </div>
+    <div class="gr-meta">${status}<span class="muted">${tr('rowMeta', fmtTime(g.createdAt), g.deals.length)}</span></div>
+    <button class="icon-btn gr-del" data-action="delete-game" data-id="${g.id}" aria-label="${tr('deleteGame')}">✕</button>
+  </li>`;
+}
+
+function settleList(g, net) {
+  const pays = settleUp(net);
+  return pays.length
+    ? `<ul class="settle-list">${pays.map(p => `<li><b>${esc(pname(p.from))}</b><span class="arrow">→</span><b>${esc(pname(p.to))}</b><span class="money">${fmtMoney(p.amount, g.currency, { sign: false })}</span></li>`).join('')}</ul>`
+    : `<p class="muted center">${tr('allEven')}</p>`;
+}
+
+function renderZhuanDetail(g) {
+  const net = zhuanTotals(g);
+  const isActive = isActiveGame(g) && !g.finished && !g.abandoned;
+  const order = [...g.seats].sort((a, b) => net[b] - net[a]);
+  return `
+    ${header(fmtDate(g.createdAt), { back: 'back-history' })}
+    <div class="narrow">
+      <p class="muted center">${tr('detailMeta', fmtTime(g.createdAt), `${tr('modeZhuan')} · ${tr('stakeIs', fmtMoney(g.stake, g.currency, { sign: false }))}`)}</p>
+      <section class="panel">
+        <h2>${tr('totals')}</h2>
+        <ul class="totals-list">${order.map((id, i) => `<li>${i === 0 && net[id] > 0 ? '<span class="crown sm">♛</span>' : ''}<b>${esc(pname(id))}</b><span class="money ${net[id] > 0 ? 'pos' : net[id] < 0 ? 'neg' : ''}">${fmtMoney(net[id], g.currency)}</span></li>`).join('')}</ul>
+      </section>
+      <section class="panel">
+        <h2>${tr('whoPays')}</h2>
+        ${settleList(g, net)}
+      </section>
+      <div class="actions-row">
+        ${!isActive && !g.finished ? `<button class="btn gold" data-action="resume-game" data-id="${g.id}">${tr('resumeGame')}</button>` : ''}
+        ${isActive ? `<button class="btn gold" data-action="go-play" data-mode="zhuan">${tr('backToTable')}</button>` : ''}
+        <button class="btn" data-action="share-game" data-id="${g.id}">${tr('share')}</button>
+        <button class="btn danger" data-action="delete-game" data-id="${g.id}">${tr('deleteGame')}</button>
+      </div>
+      <section class="panel log"><h2>${tr('hands')}</h2>${zhuanLog(g)}</section>
+    </div>`;
+}
+
 function renderGameDetail(g) {
+  if (isZhuan(g)) return renderZhuanDetail(g);
   const st = computeState(g);
   const isActive = g.id === data.activeGameId && !g.abandoned;
   const result = st.winner !== null ? tr('teamWon', teamName(st.winner)) : tr(g.abandoned ? 'endedEarly' : isActive ? 'playingNow' : 'unfinished');
@@ -715,7 +963,7 @@ function renderGameDetail(g) {
       <div class="teams">${[0, 1].map(t => teamCard(g, st, t, 'md')).join('')}</div>
       <div class="actions-row">
         ${st.winner === null && !isActive ? `<button class="btn gold" data-action="resume-game" data-id="${g.id}">${tr('resumeGame')}</button>` : ''}
-        ${isActive ? `<button class="btn gold" data-action="tab" data-tab="play">${tr('backToTable')}</button>` : ''}
+        ${isActive ? `<button class="btn gold" data-action="go-play" data-mode="normal">${tr('backToTable')}</button>` : ''}
         <button class="btn" data-action="share-game" data-id="${g.id}">${tr(st.winner !== null ? 'shareResult' : 'share')}</button>
         <button class="btn danger" data-action="delete-game" data-id="${g.id}">${tr('deleteGame')}</button>
       </div>
@@ -732,8 +980,11 @@ function rangeStart() {
 }
 
 function renderStats() {
+  const sm = ui.statsMode ?? ui.mode;
+  const modeSeg = `<div class="seg range">${['normal', 'zhuan'].map(m => `<button class="${sm === m ? 'on' : ''}" data-action="stats-mode" data-m="${m}">${tr(m === 'zhuan' ? 'modeZhuan' : 'modeNormal')}</button>`).join('')}</div>`;
+  const seg = modeSeg + `<div class="seg range">${['all', '30', 'today'].map(k => `<button class="${ui.range === k ? 'on' : ''}" data-action="range" data-r="${k}">${tr('ranges')[k]}</button>`).join('')}</div>`;
+  if (sm === 'zhuan') return renderZhuanStats(seg);
   const { players, pairs } = computeStats(rangeStart());
-  const seg = `<div class="seg range">${['all', '30', 'today'].map(k => `<button class="${ui.range === k ? 'on' : ''}" data-action="range" data-r="${k}">${tr('ranges')[k]}</button>`).join('')}</div>`;
 
   const prow = Object.entries(players).map(([id, s]) => ({ id, ...s })).sort(byRecord);
   const pairRows = Object.values(pairs).sort(byRecord);
@@ -791,6 +1042,65 @@ function renderStats() {
         </table></div>
       </section>
       <p class="hint small center">${tr('statsNote')}</p>
+    </div>`;
+}
+
+function renderZhuanStats(seg) {
+  const { players, pairs } = computeZhuanStats(rangeStart());
+  const prow = Object.entries(players).map(([id, s]) => ({ id, ...s })).filter(s => s.hands).sort(byMoney);
+  const pairRows = Object.values(pairs).filter(s => s.hands).sort(byMoney);
+  if (!prow.length) return `${header(tr('stats'))}<div class="narrow">${seg}<p class="empty big-empty"><span class="empty-suits">¥ $</span>${tr('noZhuanStats')}</p></div>`;
+  const leader = netSum(prow[0].net) > 0 ? prow[0] : null;
+  const bestPair = pairRows[0] && netSum(pairRows[0].net) > 0 ? pairRows[0] : null;
+  return `
+    ${header(tr('stats'), { right: `<button class="sound-btn" data-action="share-stats">${tr('share')}</button>` })}
+    <div class="narrow">
+      ${seg}
+      ${leader ? `
+      <div class="podium">
+        <div class="podium-card">
+          <span class="crown">♛</span>
+          <span class="muted">${tr('bigWinner')}</span>
+          <b>${esc(pname(leader.id))}</b>
+          <span class="money pos">${fmtNet(leader.net)}</span>
+        </div>
+        ${bestPair ? `<div class="podium-card">
+          <span class="crown">♥♠</span>
+          <span class="muted">${tr('bestPair')}</span>
+          <b>${esc(teamNames(bestPair.ids))}</b>
+          <span class="money pos">${fmtNet(bestPair.net)}</span>
+        </div>` : ''}
+      </div>` : ''}
+      <section class="panel">
+        <h2>${tr('players')}</h2>
+        <div class="table-wrap"><table>
+          <thead><tr><th>${tr('thPlayer')}</th><th>${tr('thNet')}</th><th>${tr('thHandsWL')}</th><th>${tr('thWin')}</th><th>${tr('tileGames')}</th><th>${tr('thOut1')}</th></tr></thead>
+          <tbody>${prow.map((s, i) => `
+            <tr data-action="open-player" data-id="${s.id}">
+              <td class="name">${i === 0 && leader ? '<span class="crown sm">♛</span>' : ''}${esc(pname(s.id))}</td>
+              <td><b class="money ${netClass(s.net)}">${fmtNet(s.net)}</b></td>
+              <td>${s.handWins}-${s.hands - s.handWins}</td>
+              <td>${pct(s.handWins, s.hands)}</td>
+              <td>${s.games}</td>
+              <td>${s.firstOuts}</td>
+            </tr>`).join('')}</tbody>
+        </table></div>
+      </section>
+      <section class="panel">
+        <h2>${tr('partnerships')}</h2>
+        <div class="table-wrap"><table>
+          <thead><tr><th>${tr('thPair')}</th><th>${tr('thNet')}</th><th>${tr('thHandsWL')}</th><th>${tr('thWin')}</th><th>${tr('th12')}</th></tr></thead>
+          <tbody>${pairRows.map(s => `
+            <tr>
+              <td class="name">${esc(teamNames(s.ids))}</td>
+              <td><b class="money ${netClass(s.net)}">${fmtNet(s.net)}</b></td>
+              <td>${s.handWins}-${s.hands - s.handWins}</td>
+              <td>${pct(s.handWins, s.hands)}</td>
+              <td>${s.doubles}</td>
+            </tr>`).join('')}</tbody>
+        </table></div>
+      </section>
+      <p class="hint small center">${tr('zhuanStatsNote')}</p>
     </div>`;
 }
 
@@ -866,6 +1176,7 @@ function renderPlayerDetail(p) {
       </div>
       ${table(tr('withPartner'), partners, tr('noPartner'))}
       ${table(tr('vsOpp'), opps, tr('noRivals'))}
+      ${zhuanPlayerPanel(p)}
       ${p.deleted ? '' : `<section class="panel">
         <h2>${tr('edit')}</h2>
         <form class="add-form" data-form="rename-player" data-id="${p.id}">
@@ -879,6 +1190,33 @@ function renderPlayerDetail(p) {
         </div>
       </section>`}
     </div>`;
+}
+
+// A player's 转蛋 money, overall and with each partner. Hidden until they've played it.
+function zhuanPlayerPanel(p) {
+  const { players, pairs } = computeZhuanStats();
+  const s = players[p.id];
+  if (!s?.hands) return '';
+  const partners = Object.values(pairs)
+    .filter(x => x.ids.includes(p.id))
+    .map(x => ({ ...x, other: x.ids.find(id => id !== p.id) }))
+    .sort(byMoney);
+  return `
+    <section class="panel">
+      <h2>${tr('modeZhuan')}</h2>
+      <div class="tiles">
+        <div class="tile"><span>${tr('thNet')}</span><b class="money ${netClass(s.net)}">${fmtNet(s.net)}</b></div>
+        <div class="tile"><span>${tr('thHandsWL')}</span><b>${s.handWins}-${s.hands - s.handWins}</b></div>
+        <div class="tile"><span>${tr('tileHands')}</span><b>${pct(s.handWins, s.hands)}</b></div>
+        <div class="tile"><span>${tr('tileGames')}</span><b>${s.games}</b></div>
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>${tr('withPartnerShort')}</th><th>${tr('thNet')}</th><th>${tr('thHandsWL')}</th><th>${tr('thWin')}</th></tr></thead>
+        <tbody>${partners.map(r => `<tr data-action="open-player" data-id="${r.other}">
+          <td class="name">${esc(pname(r.other))}</td><td><b class="money ${netClass(r.net)}">${fmtNet(r.net)}</b></td><td>${r.handWins}-${r.hands - r.handWins}</td><td>${pct(r.handWins, r.hands)}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>
+    </section>`;
 }
 
 // ---------- sheets ----------
@@ -916,7 +1254,7 @@ function renderSheet() {
     return;
   }
   delete root.dataset.leaving;
-  const body = { deal: sheetDeal, menu: sheetMenu, adjust: sheetAdjust, pick: sheetPick, confirm: sheetConfirm, rename: sheetRename }[s.type]();
+  const body = { deal: sheetDeal, menu: sheetMenu, adjust: sheetAdjust, pick: sheetPick, confirm: sheetConfirm, rename: sheetRename, pairing: sheetPairing, settle: sheetSettle }[s.type]();
   root.innerHTML = `
     <div class="backdrop ${ui.sheetIsNew ? 'enter' : ''}" data-action="close-sheet"></div>
     <div class="sheet ${ui.sheetIsNew ? 'enter' : ''}" role="dialog" aria-modal="true">
@@ -927,9 +1265,67 @@ function renderSheet() {
   ui.sheetIsNew = false;
 }
 
+function sheetZhuanDeal() {
+  const s = ui.sheet;
+  const g = findGame(s.gameId);
+  const w = s.winner;
+  const editing = Boolean(s.dealId);
+  const amount = mult => handAmount(g, { mult, bombs: s.bombs, jokers: s.jokers });
+  return `
+    <h2>${tr(editing ? 'fixHand' : 'niceHand')}</h2>
+    <div class="seg big-seg">
+      ${[0, 1].map(t => `<button class="t${t} ${w === t ? 'on' : ''}" data-action="deal-winner" data-team="${t}">${SUIT[t]} ${esc(teamNames(s.teams[t]))}</button>`).join('')}
+    </div>
+    <div class="chip-row">
+      ${s.teams[w].map(id => `<button class="chip ${s.firstOut === id ? 'on' : ''}" data-action="deal-first" data-id="${id}" aria-label="${tr('whoFirst')}">${tr('outFirstChip', esc(pname(id)))}</button>`).join('')}
+    </div>
+    <div class="bomb-row">
+      <span class="bomb-label">💣 ×2</span>
+      <button class="mini-step" data-action="bomb-step" data-d="-1" ${s.bombs ? '' : 'disabled'} aria-label="${tr('fewerBombs')}">−</button>
+      <span class="bomb-count">${s.bombs}</span>
+      <button class="mini-step" data-action="bomb-step" data-d="1" ${s.bombs >= 8 ? 'disabled' : ''} aria-label="${tr('moreBombs')}">+</button>
+      <button class="chip jokers ${s.jokers ? 'on' : ''}" data-action="jokers-toggle">${tr('jokersChip')}</button>
+    </div>
+    <div class="gain-btns">
+      ${[1, 2, 3].map(n => `<button class="gain-btn money-btn t${w} ${editing && s.mult === n ? 'on' : ''}" data-action="zdeal-save" data-mult="${n}">×${n}<small>${fmtMoney(amount(n), g.currency)}</small></button>`).join('')}
+    </div>
+    ${editing ? `<button class="btn danger full" data-action="delete-deal">${tr('deleteHand')}</button>` : ''}
+    <button class="btn subtle full" data-action="close-sheet">${tr('cancel')}</button>`;
+}
+
+function sheetPairing() {
+  const g = findGame(ui.sheet.gameId);
+  return `
+    <h2>${tr('changePartners')}</h2>
+    <div class="menu">
+      ${pairings(g.seats).map((p, i) => `<button class="pairing ${samePairing(p, g.teams) ? 'on' : ''}" data-action="pairing-pick" data-i="${i}">
+        <span><span class="suit t0">${SUIT[0]}</span>${esc(teamNames(p[0]))}</span>
+        <span class="vs">vs</span>
+        <span><span class="suit t1">${SUIT[1]}</span>${esc(teamNames(p[1]))}</span>
+      </button>`).join('')}
+    </div>
+    <button class="btn subtle full" data-action="close-sheet">${tr('cancel')}</button>`;
+}
+
+function sheetSettle() {
+  const g = findGame(ui.sheet.gameId);
+  const net = zhuanTotals(g);
+  const order = [...g.seats].sort((a, b) => net[b] - net[a]);
+  const live = !g.finished;
+  return `
+    <h2>${tr('settleUp')}</h2>
+    <ul class="totals-list">${order.map(id => `<li><b>${esc(pname(id))}</b><span class="money ${net[id] > 0 ? 'pos' : net[id] < 0 ? 'neg' : ''}">${fmtMoney(net[id], g.currency)}</span></li>`).join('')}</ul>
+    <p class="label">${tr('whoPays')}</p>
+    ${settleList(g, net)}
+    <button class="btn" data-action="share-game" data-id="${g.id}">${tr('share')}</button>
+    ${live ? `<button class="btn gold full" data-action="finish-zhuan">${tr('finishGame')}</button>` : ''}
+    <button class="btn subtle full" data-action="close-sheet">${tr(live ? 'keepPlaying' : 'close')}</button>`;
+}
+
 function sheetDeal() {
   const s = ui.sheet;
   const g = findGame(s.gameId);
+  if (isZhuan(g)) return sheetZhuanDeal();
   const w = s.winner;
   const editing = Boolean(s.dealId);
 
@@ -951,6 +1347,18 @@ function sheetDeal() {
 
 function sheetMenu() {
   const g = activeGame();
+  if (isZhuan(g)) {
+    return `
+    <h2>${tr('gameOptions')}</h2>
+    <div class="menu">
+      <button data-action="settle-open">${tr('settleUp')}</button>
+      <button data-action="pairing-open">${tr('changePartners')}</button>
+      ${g.guest ? '' : `<button data-action="open-game" data-id="${g.id}">${tr('seeInHistory')}</button>`}
+      <button data-action="finish-zhuan">${tr('finishGame')}<small>${tr(g.guest ? 'endGuestSub' : 'finishSub')}</small></button>
+    </div>
+    <p class="muted small">${tr('stakeIs', fmtMoney(g.stake, g.currency, { sign: false }))}</p>
+    <button class="btn subtle full" data-action="close-sheet">${tr('close')}</button>`;
+  }
   const st = computeState(g);
   return `
     <h2>${tr('gameOptions')}</h2>
@@ -1034,6 +1442,7 @@ function afterRender() {
   if (ui.tab !== 'play') return;
   const g = activeGame();
   if (!g) { ui.shown = null; return; }
+  if (isZhuan(g)) return afterRenderZhuan(g);
   const st = computeState(g);
   const prev = ui.shown;
   ui.shown = { id: g.id, levels: st.levels.slice(), winner: st.winner, deals: g.deals.length };
@@ -1055,6 +1464,46 @@ function afterRender() {
   } else if (rose) sound.play('up', rose);
   else if (fell) sound.play('down');
 
+  if (g.deals.length > prev.deals && !reducedMotion()) {
+    document.querySelector('.deals .deal')?.animate(
+      [{ opacity: 0, transform: 'translateY(-8px)' }, { opacity: 1, transform: 'none' }],
+      { duration: 260, easing: 'cubic-bezier(.23, 1, .32, 1)' },
+    );
+  }
+}
+
+// After a 转蛋 hand: winners' totals pop green with the amount floating up, losers' dip red.
+function afterRenderZhuan(g) {
+  const net = zhuanTotals(g);
+  const prev = ui.shown;
+  ui.shown = { id: g.id, net, deals: g.deals.length };
+  if (!prev || prev.id !== g.id || !prev.net) return;
+  let gained = false, lost = false;
+  for (const id of g.seats) {
+    const diff = round2(net[id] - (prev.net[id] || 0));
+    if (!diff) continue;
+    if (diff > 0) gained = true; else lost = true;
+    const row = [...document.querySelectorAll('.board .money-row')].find(r => r.dataset.pid === id);
+    if (!row) continue;
+    const money = row.querySelector('.money');
+    if (reducedMotion()) { money.animate([{ opacity: 0.4 }, { opacity: 1 }], { duration: 220 }); continue; }
+    money.animate(
+      [{ transform: 'scale(1)' }, { transform: `scale(${diff > 0 ? 1.25 : 0.85})`, offset: 0.35 }, { transform: 'scale(1)' }],
+      { duration: 520, easing: 'cubic-bezier(.23, 1, .32, 1)' },
+    );
+    const f = document.createElement('span');
+    f.className = `float-money ${diff > 0 ? 'pos' : 'neg'}`;
+    f.textContent = fmtMoney(diff, g.currency);
+    row.appendChild(f);
+    f.animate(
+      diff > 0
+        ? [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'translateY(-10px)', offset: 0.3 }, { opacity: 0, transform: 'translateY(-34px)' }]
+        : [{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'translateY(6px)', offset: 0.3 }, { opacity: 0, transform: 'translateY(22px)' }],
+      { duration: 1200, easing: 'cubic-bezier(.23, 1, .32, 1)' },
+    ).onfinish = () => f.remove();
+  }
+  if (g.deals.length > prev.deals) sound.play('coins');
+  else if (gained || lost) sound.play('down');
   if (g.deals.length > prev.deals && !reducedMotion()) {
     document.querySelector('.deals .deal')?.animate(
       [{ opacity: 0, transform: 'translateY(-8px)' }, { opacity: 1, transform: 'none' }],
@@ -1212,7 +1661,29 @@ function shareFooter() {
   return location.protocol === 'https:' ? '\n\n' + tr('shareFooter', location.origin + location.pathname) : '';
 }
 
+function zhuanShareText(g) {
+  const net = zhuanTotals(g);
+  const lines = [tr('shareZhuanHead', fmtDate(g.createdAt)), tr('stakeIs', fmtMoney(g.stake, g.currency, { sign: false })), ''];
+  [...g.seats].sort((a, b) => net[b] - net[a]).forEach(id => lines.push(`${pname(id)}: ${fmtMoney(net[id], g.currency)}`));
+  const pays = settleUp(net);
+  if (pays.length) {
+    lines.push('', tr('whoPays'));
+    pays.forEach(p => lines.push(`${pname(p.from)} → ${pname(p.to)}: ${fmtMoney(p.amount, g.currency, { sign: false })}`));
+  }
+  lines.push('', tr('shareHands', g.deals.length));
+  return lines.join('\n') + shareFooter();
+}
+
+function zhuanStatsShareText() {
+  const { players } = computeZhuanStats(rangeStart());
+  const rows = Object.entries(players).map(([id, s]) => ({ id, ...s })).filter(s => s.hands).sort(byMoney).slice(0, 10);
+  const lines = [tr('shareZhuanLeader', tr('ranges')[ui.range]), ''];
+  rows.forEach((s, i) => lines.push(`${i === 0 ? '♛ ' : ''}${i + 1}. ${pname(s.id)}: ${fmtNet(s.net)}`));
+  return lines.join('\n') + shareFooter();
+}
+
 function gameShareText(g) {
+  if (isZhuan(g)) return zhuanShareText(g);
   const st = computeState(g);
   const hands = g.deals.filter(d => d.type !== 'adjust').length;
   const lines = [tr('shareGameHead', fmtDate(g.createdAt))];
@@ -1225,6 +1696,7 @@ function gameShareText(g) {
 }
 
 function statsShareText() {
+  if ((ui.statsMode ?? ui.mode) === 'zhuan') return zhuanStatsShareText();
   const { players, pairs } = computeStats(rangeStart());
   const rows = Object.entries(players).map(([id, s]) => ({ id, ...s })).filter(s => s.games).sort(byRecord).slice(0, 10);
   const lines = [tr('shareLeaderHead', tr('ranges')[ui.range]), ''];
@@ -1279,6 +1751,8 @@ const ACTION_SOUND = {
   undo: 'undo', 'undo-deal': 'undo',
   'delete-deal': 'del', 'confirm-run': 'del', 'clear-slot': 'del',
   'shuffle-teams': 'flip', 'swap-teams': 'flip', 'pick-player': 'pop',
+  'zdeal-save': null, 'pairing-open': 'open', 'settle-open': 'open', 'pairing-pick': 'flip', 'finish-zhuan': 'chip',
+  'jokers-toggle': 'pop', 'pick-mode': 'open', 'choose-mode': 'chip',
   'toggle-sound': null, 'toggle-lang': 'flip',
 };
 
@@ -1302,7 +1776,51 @@ const actions = {
 
   // play
   record({ team }) {
-    openSheet({ type: 'deal', gameId: data.activeGameId, winner: +team, firstOut: null });
+    const g = activeGame();
+    if (isZhuan(g)) {
+      openSheet({ type: 'deal', gameId: g.id, winner: +team, firstOut: null, teams: g.teams.map(t => t.slice()), bombs: 0, jokers: false });
+      return;
+    }
+    openSheet({ type: 'deal', gameId: g.id, winner: +team, firstOut: null });
+  },
+  'bomb-step'({ d }) {
+    ui.sheet.bombs = Math.min(8, Math.max(0, ui.sheet.bombs + +d));
+    render();
+  },
+  'jokers-toggle'() { ui.sheet.jokers = !ui.sheet.jokers; render(); },
+  'zdeal-save'({ mult }) {
+    const s = ui.sheet;
+    const g = findGame(s.gameId);
+    const fields = { winner: s.winner, teams: s.teams.map(t => t.slice()), mult: +mult, bombs: s.bombs, jokers: s.jokers, firstOut: s.firstOut };
+    ui.sheet = null;
+    if (s.dealId) {
+      mutate(tr('handUpdated'), () => Object.assign(g.deals.find(d => d.id === s.dealId), fields));
+      return;
+    }
+    const amt = handAmount(g, fields);
+    mutate(tr('pairWins', teamNames(fields.teams[fields.winner]), fmtMoney(amt, g.currency)), () => g.deals.push({ id: uid(), at: Date.now(), ...fields }));
+  },
+  'pairing-open'() { openSheet({ type: 'pairing', gameId: activeGame().id }); },
+  'pairing-pick'({ i }) {
+    const g = findGame(ui.sheet.gameId);
+    const p = pairings(g.seats)[+i];
+    ui.sheet = null;
+    if (samePairing(p, g.teams)) return render();
+    mutate(tr('partnersChanged'), () => { g.teams = p.map(t => t.slice()); });
+  },
+  'settle-open'() { openSheet({ type: 'settle', gameId: activeGame().id }); },
+  'finish-zhuan'() {
+    const g = activeGame();
+    ui.sheet = null;
+    if (g.guest) {
+      mutate(tr('guestEnded'), () => { data.games = data.games.filter(x => x !== g); setActive(null); });
+      return;
+    }
+    mutate(tr('savedToHistory'), () => { g.finished = true; setActive(null); });
+    ui.tab = 'history';
+    ui.gameId = g.id;
+    render();
+    switchView();
   },
   'deal-winner'({ team }) {
     if (ui.sheet.winner !== +team) { ui.sheet.winner = +team; ui.sheet.firstOut = null; }
@@ -1331,6 +1849,10 @@ const actions = {
   'edit-deal'({ game, id }) {
     const g = findGame(game);
     const d = g.deals.find(x => x.id === id);
+    if (isZhuan(g)) {
+      openSheet({ type: 'deal', gameId: game, dealId: id, winner: d.winner, teams: d.teams.map(t => t.slice()), mult: d.mult, bombs: d.bombs || 0, jokers: Boolean(d.jokers), firstOut: d.firstOut });
+      return;
+    }
     if (d.type === 'adjust') openSheet({ type: 'adjust', gameId: game, dealId: id, levels: d.levels.slice(), declarer: d.declarer });
     else openSheet({ type: 'deal', gameId: game, dealId: id, winner: d.winner, step: BUMP[d.place], firstOut: d.firstOut });
   },
@@ -1365,10 +1887,10 @@ const actions = {
     const g = activeGame();
     ui.sheet = null;
     if (g.guest) {
-      mutate(tr('guestEnded'), () => { data.games = data.games.filter(x => x !== g); data.activeGameId = null; });
+      mutate(tr('guestEnded'), () => { data.games = data.games.filter(x => x !== g); setActive(null); });
       return;
     }
-    mutate(tr('savedToHistory'), () => { g.abandoned = true; data.activeGameId = null; });
+    mutate(tr('savedToHistory'), () => { g.abandoned = true; setActive(null); });
   },
   'new-game'() {
     const prev = activeGame();
@@ -1376,8 +1898,8 @@ const actions = {
     ui.draft = newDraft();
     ui.draft.guest = prev ? Boolean(prev.guest) : true; // stay in the mode you were playing
     ui.fanDealt = false;
-    data.activeGameId = null;
-    data.games = data.games.filter(g => !g.guest); // quick games are never kept
+    setActive(null);
+    dropGuestGames(); // quick games are never kept
     save();
     ui.tab = 'play';
     render();
@@ -1394,8 +1916,8 @@ const actions = {
     }
     ui.draft.rules = { ...g.rules };
     ui.fanDealt = false;
-    data.activeGameId = null;
-    data.games = data.games.filter(x => !x.guest);
+    setActive(null);
+    dropGuestGames();
     save();
     render();
     switchView();
@@ -1411,9 +1933,12 @@ const actions = {
   'same-teams'() {
     const prev = lastGame();
     ui.draft.teams = prev.teams.map(t => t.slice());
-    ui.draft.rules = { ...prev.rules };
+    if (prev.rules) ui.draft.rules = { ...prev.rules };
+    if (isZhuan(prev)) Object.assign(ui.draft, { stake: prev.stake, currency: prev.currency });
     render();
   },
+  'stake-pick'({ v }) { ui.draft.stake = +v; render(); },
+  'currency-pick'({ c }) { ui.draft.currency = c; render(); },
   'draft-mode'({ guest }) { ui.draft.guest = guest === '1'; render(); },
   'shuffle-teams'() {
     const key = ui.draft.guest ? 'guestNames' : 'teams';
@@ -1442,22 +1967,41 @@ const actions = {
   'start-decl'({ team }) { ui.draft.start.declarer = +team; render(); },
   'start-game'() {
     const d = ui.draft;
-    const unequal = d.start.levels[0] !== d.start.levels[1];
-    const g = {
-      id: uid(),
-      createdAt: Date.now(),
-      teams: d.guest ? d.guestNames.map((t, ti) => t.map((name, s) => guestId(ti, s, name))) : d.teams.map(t => t.slice()),
-      rules: { ...d.rules },
-      start: { levels: d.start.levels.slice(), declarer: unequal ? d.start.declarer : null },
-      deals: [],
-      abandoned: false,
-      ...(d.guest && { guest: true }),
-    };
+    const teams = d.guest ? d.guestNames.map((t, ti) => t.map((name, s) => guestId(ti, s, name))) : d.teams.map(t => t.slice());
+    let g;
+    if (ui.mode === 'zhuan') {
+      const stake = round2(Number(d.stake));
+      if (!(stake > 0)) { sound.play('nope'); return toast(tr('needStake')); }
+      try { localStorage.setItem(ZHUAN_KEY, JSON.stringify({ stake, currency: d.currency })); } catch (e) { /* ignore */ }
+      g = {
+        id: uid(),
+        createdAt: Date.now(),
+        mode: 'zhuan',
+        seats: teams.flat(),
+        teams,
+        stake,
+        currency: d.currency,
+        deals: [],
+        ...(d.guest && { guest: true }),
+      };
+    } else {
+      const unequal = d.start.levels[0] !== d.start.levels[1];
+      g = {
+        id: uid(),
+        createdAt: Date.now(),
+        teams,
+        rules: { ...d.rules },
+        start: { levels: d.start.levels.slice(), declarer: unequal ? d.start.declarer : null },
+        deals: [],
+        abandoned: false,
+        ...(d.guest && { guest: true }),
+      };
+    }
     ui.draft = null;
     mutate(tr('dealt'), () => {
-      data.games = data.games.filter(x => !x.guest);
+      dropGuestGames();
       data.games.push(g);
-      data.activeGameId = g.id;
+      setActive(g.id);
     });
     switchView();
   },
@@ -1473,9 +2017,17 @@ const actions = {
   'back-history'() { ui.gameId = null; render(); switchView(); },
   'resume-game'({ id }) {
     const g = findGame(id);
+    setMode(isZhuan(g) ? 'zhuan' : 'normal');
     ui.tab = 'play';
     ui.gameId = null;
-    mutate(tr('backAtTable'), () => { g.abandoned = false; data.activeGameId = id; });
+    mutate(tr('backAtTable'), () => { g.abandoned = false; setActive(id); });
+    switchView();
+  },
+  'go-play'({ mode }) {
+    setMode(mode);
+    ui.tab = 'play';
+    ui.gameId = null;
+    render();
     switchView();
   },
   'delete-game'({ id }) {
@@ -1489,6 +2041,7 @@ const actions = {
         mutate(tr('gameDeleted'), () => {
           data.games = data.games.filter(g => g.id !== id);
           if (data.activeGameId === id) data.activeGameId = null;
+          if (data.activeZhuanId === id) data.activeZhuanId = null;
         });
       },
     });
@@ -1501,6 +2054,18 @@ const actions = {
 
   // stats / players
   range({ r }) { ui.range = r; render(); },
+  'stats-mode'({ m }) { ui.statsMode = m; render(); },
+
+  // mode: 掼蛋 or 转蛋
+  'pick-mode'() { showModePicker(); },
+  'choose-mode'({ mode }) {
+    setMode(mode);
+    hideModePicker();
+    ui.tab = 'play';
+    ui.gameId = null;
+    render();
+    switchView();
+  },
   'open-player'({ id }) {
     ui.tab = 'players';
     ui.playerId = id;
@@ -1598,6 +2163,7 @@ document.addEventListener('submit', e => {
 document.addEventListener('input', e => {
   const el = e.target;
   if (el.dataset.input === 'guest-name') ui.draft.guestNames[+el.dataset.team][+el.dataset.seat] = el.value;
+  if (el.dataset.input === 'stake') ui.draft.stake = parseFloat(el.value);
 });
 
 document.addEventListener('change', e => {
@@ -1628,13 +2194,65 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && ui.sheet) closeSheet();
 });
 
+// ---------- mode: 掼蛋 or 转蛋 ----------
+function setMode(m) {
+  if (ui.mode === m) return;
+  ui.mode = m;
+  ui.statsMode = null;
+  ui.shown = null;
+  ui.fanDealt = false;
+  try { localStorage.setItem(MODE_KEY, m); } catch (e) { /* ignore */ }
+}
+
+// Shown right after the opening animation, and from the mode button on the Play screen.
+function showModePicker() {
+  if (document.getElementById('mode-pick')) return;
+  ui.sheet = null;
+  renderSheet();
+  const el = document.createElement('div');
+  el.id = 'mode-pick';
+  el.setAttribute('role', 'dialog');
+  el.setAttribute('aria-modal', 'true');
+  el.setAttribute('aria-label', tr('pickModeTitle'));
+  el.innerHTML = `
+    <div class="mp-inner">
+      <h2 class="mp-title">${tr('pickModeTitle')}</h2>
+      <button class="mode-card ${ui.mode === 'normal' ? 'last' : ''}" data-action="choose-mode" data-mode="normal">
+        <span class="mc-cards" aria-hidden="true">${playingCard(0, 0, 'sm')}${playingCard(ACE, 1, 'sm')}</span>
+        <span class="mc-text"><b>${tr('modeNormal')}</b><span>${tr('modeNormalSub')}</span></span>
+      </button>
+      <button class="mode-card ${ui.mode === 'zhuan' ? 'last' : ''}" data-action="choose-mode" data-mode="zhuan">
+        <span class="mc-cards" aria-hidden="true">${playingCard(0, 0, 'sm')}<span class="coin">¥</span><span class="coin two">$</span></span>
+        <span class="mc-text"><b>${tr('modeZhuan')}</b><span>${tr('modeZhuanSub')}</span></span>
+      </button>
+    </div>`;
+  document.body.appendChild(el);
+  document.body.classList.add('sheet-open');
+  if (reducedMotion()) return;
+  el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260, easing: 'ease-out' });
+  [el.querySelector('.mp-title'), ...el.querySelectorAll('.mode-card')].forEach((n, i) => n.animate(
+    [{ opacity: 0, transform: 'translateY(24px) scale(.97)' }, { opacity: 1, transform: 'none' }],
+    { duration: 420, delay: 80 + i * 90, easing: 'cubic-bezier(.23, 1, .32, 1)', fill: 'backwards' },
+  ));
+}
+
+function hideModePicker() {
+  const el = document.getElementById('mode-pick');
+  if (!el) return;
+  document.body.classList.remove('sheet-open');
+  el.style.pointerEvents = 'none';
+  if (reducedMotion()) { el.remove(); return; }
+  el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, easing: 'ease-out', fill: 'forwards' }).onfinish = () => el.remove();
+  setTimeout(() => el.remove(), 400); // in case the fade never reports finishing
+}
+
 // ---------- opening animation ----------
 // The chick waddles in from the side, stops with a hop, two decks' worth of aces fan out
 // behind it, the name rises (in both languages), then it all fades into the app.
 // A tap anywhere skips straight in.
 function runSplash() {
   const el = document.getElementById('splash');
-  if (!el) return;
+  if (!el) { showModePicker(); return; }
   const FAN = [[-42, 1], [-14, 0], [14, 1], [42, 0]];   // [angle, suit index]
   const other = lang === 'zh' ? 'en' : 'zh';
   el.innerHTML = `
@@ -1664,8 +2282,11 @@ function runSplash() {
     done = true;
     timers.forEach(clearTimeout);
     sound.stopIntro();
+    showModePicker(); // waits underneath while the opening fades away
+    el.style.pointerEvents = 'none'; // so the picker can be tapped straight away
     el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: reducedMotion() ? 300 : 450, easing: 'ease-in', fill: 'forwards' })
       .onfinish = () => el.remove();
+    setTimeout(() => el.remove(), 700); // in case the fade never reports finishing
     if (!reducedMotion()) el.querySelector('.splash-stage').animate([{ transform: 'none' }, { transform: 'scale(1.08)' }], { duration: 450, fill: 'forwards' });
   };
   el.addEventListener('pointerdown', exit, { once: true });

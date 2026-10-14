@@ -851,6 +851,74 @@ tr[data-action]:active td { background: var(--fill); }
   .bar h1 { font-size: 30px; }
 }
 
+/* ---------- phone turned sideways: short and wide ----------
+   The tab bar becomes a rail down the left side, the header shrinks to one line, and the
+   play screen splits in two: the card table on the left, the "who won" buttons and the
+   hands on the right, so recording a hand never needs a scroll. */
+@media (orientation: landscape) and (max-height: 520px) {
+  :root { --rail: 64px; }
+  body {
+    padding: max(8px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) calc(env(safe-area-inset-bottom) + 20px) calc(max(10px, env(safe-area-inset-left)) + var(--rail) + 14px);
+  }
+  #tabs {
+    left: max(10px, env(safe-area-inset-left)); right: auto; top: 50%; bottom: auto;
+    transform: translateY(-50%);
+    width: var(--rail); height: auto; max-width: none; margin: 0;
+    flex-direction: column;
+  }
+  #tabs button { flex: none; height: 58px; }
+  #toast { bottom: calc(env(safe-area-inset-bottom) + 14px); }
+  .start-bar { bottom: calc(env(safe-area-inset-bottom) + 10px); }
+
+  /* one-line header: tools on both ends, a smaller title in between */
+  .bar { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; min-height: 44px; }
+  .bar-row { display: contents; }
+  .bar-left { order: 0; }
+  .bar h1 { order: 1; flex: 1; font-size: 22px; line-height: 28px; gap: 8px; }
+  .bar-right { order: 2; }
+  .bar-logo { width: 26px; height: 26px; border-radius: 7px; }
+  .narrow { gap: 12px; }
+
+  /* play: table on the left, controls and hands on the right */
+  .play-grid { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 10px 14px; align-items: start; }
+  .board { display: contents; }
+  .board > .status { grid-column: 1; grid-row: 1; font-size: 15px; gap: 4px 12px; }
+  .board > .guest-note { grid-column: 1; grid-row: 2; margin: 0; }
+  .board > .teams, .board > .money-board { grid-column: 1; grid-row: 3 / span 4; }
+  .board > .record, .board > .actions-row { grid-column: 2; grid-row: 1 / span 2; }
+  .board > .zhuan-tools { grid-column: 2; grid-row: 3; }
+  .board > .undo-deal { grid-column: 2; grid-row: 4; }
+  .play-grid > .log { grid-column: 2; grid-row: 5; position: static; max-height: none; overflow: visible; }
+  .record .hint { display: none; }
+  .chip-btn { min-height: 64px; font-size: 19px; }
+  .status.champ { font-size: 22px; }
+  .teams, .money-board { padding: 10px; gap: 8px; }
+  .team { padding: 6px 6px 4px; }
+  .team-meta { min-height: 22px; }
+  .pcard-wrap { --w: clamp(70px, 24vh, 116px); margin: 6px auto 4px; }
+  .money-team { gap: 6px; padding: 8px 6px; }
+  .money-row { flex-direction: row; gap: 8px; padding: 8px 10px; }
+  .money-row .avatar { display: none; }
+  .mr-name { flex: 1; text-align: left; }
+  .money-row .money { font-size: 19px; }
+
+  /* new game: the card fan sits beside the title instead of above it */
+  .hero { display: grid; grid-template-columns: auto minmax(0, 34ch); justify-content: center; align-items: center; column-gap: 28px; text-align: left; padding: 6px 0 0; }
+  .hero .fan { grid-row: span 2; height: 84px; transform: scale(.78); margin: -12px 0; }
+  .hero-title { margin: 0; font-size: 24px; }
+  .hero p { margin: 4px 0 0; }
+
+  /* mode picker: the two choices side by side */
+  .mp-inner { max-width: 780px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .mp-title { grid-column: 1 / -1; font-size: 24px; margin: 0; }
+
+  /* sheets: a little tighter so a whole hand fits on screen */
+  .sheet { max-height: calc(100dvh - 16px); gap: 10px; }
+  .gain-btn { min-height: 64px; }
+  .big-seg button { min-height: 40px; }
+  .tiles { grid-template-columns: repeat(4, 1fr); }
+}
+
 @media (hover: hover) and (pointer: fine) {
   .chip-btn:hover { filter: brightness(1.06); }
   .btn:hover:not(:disabled) { filter: brightness(1.05); }
@@ -892,3 +960,17 @@ tr[data-action]:active td { background: var(--fill); }
 .splash-tag { font-size: 16px; font-weight: 600; color: var(--on-felt-muted); }
 .splash-suits { display: flex; gap: 18px; margin-top: 6px; font-size: 18px; color: var(--gold); }
 .splash-suits span { display: inline-block; }
+
+/* the opening animation, sideways: chick and aces on the left, the name on the right */
+@media (orientation: landscape) and (max-height: 520px) {
+  #splash {
+    display: grid; grid-template-columns: auto auto; justify-content: center; align-content: center;
+    justify-items: start; column-gap: 36px; row-gap: 6px; text-align: left;
+  }
+  .splash-stage { grid-row: 1 / span 4; width: 240px; height: 240px; margin: 0; }
+  .splash-stage .pcard-wrap { --w: 84px; }
+  .splash-chick { width: 136px; margin: -86px 0 0 -68px; }
+  .splash-title { font-size: 40px; line-height: 1.1; }
+  .splash-alt { margin-top: 0; font-size: 22px; }
+  .splash-suits { margin-top: 4px; }
+}

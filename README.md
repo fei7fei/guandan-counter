@@ -152,7 +152,7 @@ Zhuandan uses all the same cards and plays as Guandan, with a few big difference
 
 ### Keeping score in the app
 
-1. Pick **Zhuandan**, then choose the **base amount** and the money: **¥ RMB**, **$ CAD** or plain **points**.
+1. Pick **Zhuandan**, then choose the **base amount** and what you play for: plain **points** (the default), **¥ RMB** or **$ CAD**.
 2. **Count bombs as they land.** Tap **💣 Bomb!** every time someone bombs during the hand (and **4 jokers ×4** if they show up), so nobody has to remember at the end. The counter shows what the hand now pays.
 3. After each hand, tap the team that won. Your bombs are already filled in. Fix the bomb count with **−** / **+** if needed, then tap **×1**, **×2** or **×3**. Each button shows how much every winner collects.
 4. Everyone's running total sits on the table. Tap **Change partners** whenever the pairs switch, or tap a player to change their name mid-game.

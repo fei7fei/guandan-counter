@@ -10,9 +10,10 @@ const STORE_KEY = 'guandan-counter/v1';
 const MUTE_KEY = 'guandan-counter/muted';
 const LANG_KEY = 'guandan-counter/lang';
 const MODE_KEY = 'guandan-counter/mode';
-const ZHUAN_KEY = 'guandan-counter/zhuan';         // last stake and currency used in 转蛋
+const ZHUAN_KEY = 'guandan-counter/zhuan-v2';      // last stake and currency used in 转蛋
+const ZHUAN_KEY_OLD = 'guandan-counter/zhuan';     // from when ¥ was the default
 const DAY = 86400000;
-const CURRENCIES = ['¥', '$', ''];                 // RMB, dollars, plain points
+const CURRENCIES = ['', '¥', '$'];                 // plain points (the default), RMB, dollars
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ---------- language ----------
@@ -89,8 +90,11 @@ function zhuanPrefs() {
   try {
     const p = JSON.parse(localStorage.getItem(ZHUAN_KEY));
     if (p && typeof p.stake === 'number' && CURRENCIES.includes(p.currency)) return p;
+    // the old key saved ¥ whether or not anyone picked it, so keep only its stake
+    const old = JSON.parse(localStorage.getItem(ZHUAN_KEY_OLD));
+    if (old && typeof old.stake === 'number') return { stake: old.stake, currency: '' };
   } catch (e) { /* ignore */ }
-  return { stake: 10, currency: '¥' };
+  return { stake: 10, currency: '' };
 }
 
 // ---------- sound ----------

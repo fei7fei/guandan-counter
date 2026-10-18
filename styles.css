@@ -75,6 +75,12 @@
   --tab-gap: 10px;
   --ease-out: cubic-bezier(.23, 1, .32, 1);
   --ease-drawer: cubic-bezier(.32, .72, 0, 1);
+  /* screen height: dvh where the browser has it. iPadOS before 15.4 doesn't, and a dvh
+     inside the card size (--w) would leave the level cards with body-size numbers. */
+  --vh: 100vh;
+}
+@supports (height: 100dvh) {
+  :root { --vh: 100dvh; }
 }
 
 @media (prefers-color-scheme: dark) {
@@ -119,7 +125,7 @@ html { -webkit-text-size-adjust: 100%; background: var(--bg); }
 
 body {
   margin: 0;
-  min-height: 100dvh;
+  min-height: var(--vh);
   color: var(--label);
   background: var(--bg);
   font-family: "Guandan Chinese", ui-rounded, "SF Pro Rounded", "Guandan Rounded", -apple-system, system-ui, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
@@ -796,7 +802,7 @@ tr[data-action]:active td { background: var(--fill); }
 .sheet {
   position: fixed; z-index: 21;
   left: 0; right: 0; bottom: 0; margin: 0 auto;
-  width: 100%; max-width: 560px; max-height: 92dvh; overflow-y: auto;
+  width: 100%; max-width: 560px; max-height: calc(var(--vh) * .92); overflow-y: auto;
   background: var(--sheet-bg); color: var(--label);
   border-radius: 28px 28px 0 0;
   padding: 8px 18px calc(16px + env(safe-area-inset-bottom));
@@ -878,7 +884,7 @@ tr[data-action]:active td { background: var(--fill); }
 .rank-grid button.on.t0 { background: var(--red); color: #fff; }
 .rank-grid button.on.t1 { background: var(--blue); color: #fff; }
 
-.pick-list { display: flex; flex-direction: column; max-height: 45dvh; overflow-y: auto; border-radius: 16px; background: var(--cell); }
+.pick-list { display: flex; flex-direction: column; max-height: calc(var(--vh) * .45); overflow-y: auto; border-radius: 16px; background: var(--cell); }
 .pick-list button { display: flex; align-items: center; gap: 12px; padding: 10px 14px; min-height: 54px; text-align: left; font-weight: 600; font-size: 17px; transition: background-color 140ms ease; }
 .pick-list button + button { box-shadow: inset 60px .5px 0 var(--cell), inset 0 .5px 0 var(--sep); }
 .pick-list button:active { background: var(--fill); }
@@ -927,10 +933,8 @@ tr[data-action]:active td { background: var(--fill); }
 .order-chip.on.t0 .oc-pos { background: var(--red); color: #fff; }
 .order-chip.on.t1 .oc-pos { background: var(--blue); color: #fff; }
 
-/* tribute, on its own line under the status */
-.status .tribute { flex-basis: 100%; display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 2px 8px; font-size: 15px; font-weight: 600; }
-.status .tribute b { color: var(--gold-text); }
-.status .tribute small { font-size: 12px; font-weight: 500; color: var(--label-2); }
+/* tribute (单贡 / 双贡 / 内贡), on its own line under the status */
+.status .tribute { flex-basis: 100%; font-weight: 700; color: var(--gold-text); }
 
 /* backups */
 .backup-when { margin: 0 0 12px; font-size: 14px; color: var(--label-2); }
@@ -984,7 +988,7 @@ tr[data-action]:active td { background: var(--fill); }
 /* GG mode: the clip, big and centered over a dimmed table */
 .gg { position: fixed; inset: 0; z-index: 41; display: grid; place-items: center; padding: 16px; background: rgba(0, 0, 0, .6); }
 .gg img {
-  width: min(92vw, 760px, calc(82dvh * 16 / 9)); aspect-ratio: 16 / 9; object-fit: cover;
+  width: min(92vw, 760px, calc(var(--vh) * .82 * 16 / 9)); aspect-ratio: 16 / 9; object-fit: cover;
   border-radius: 22px; box-shadow: 0 24px 70px rgba(0, 0, 0, .55);
 }
 .mp-title { -webkit-tap-highlight-color: transparent; }
@@ -1064,7 +1068,7 @@ tr[data-action]:active td { background: var(--fill); }
 /* ---------- iPad / wide ---------- */
 @media (min-width: 900px) {
   .play-grid { grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr); align-items: start; }
-  .log { position: sticky; top: calc(env(safe-area-inset-top) + 12px); max-height: calc(100dvh - var(--tabbar) - 60px); overflow-y: auto; }
+  .log { position: sticky; top: calc(env(safe-area-inset-top) + 12px); max-height: calc(var(--vh) - var(--tabbar) - 60px); overflow-y: auto; }
   .tiles { grid-template-columns: repeat(4, 1fr); }
   .chip-btn { min-height: 96px; font-size: 24px; }
   .status { font-size: 19px; }
@@ -1116,7 +1120,7 @@ tr[data-action]:active td { background: var(--fill); }
   .mp-title { grid-column: 1 / -1; font-size: 24px; margin: 0; }
 
   /* sheets: a little tighter so a whole hand fits on screen */
-  .sheet { max-height: calc(100dvh - 16px); gap: 10px; }
+  .sheet { max-height: calc(var(--vh) - 16px); gap: 10px; }
   .gain-btn { min-height: 64px; }
   .sheet-deal { padding-top: 12px; gap: 10px; }
   .sheet-deal .gain-btn { min-height: 84px; font-size: 38px; }
@@ -1196,10 +1200,10 @@ tr[data-action]:active td { background: var(--fill); }
     transition: transform 140ms var(--ease-out);
   }
   .table-menu:active { transform: scale(.92); }
-  .board > .teams .pcard-wrap { --w: min(calc((100dvh - 64px) * 5 / 7), 31vw); margin: 4px auto 0; }
+  .board > .teams .pcard-wrap { --w: min(calc((var(--vh) - 64px) * 5 / 7), 31vw); margin: 4px auto 0; }
   /* before the first hand, the "tap their card" hint rides in the status line */
   .board > .tap-hint { display: none; }
-  .play-grid.done .board > .teams .pcard-wrap { --w: min(calc((100dvh - 124px) * 5 / 7), 31vw); }
+  .play-grid.done .board > .teams .pcard-wrap { --w: min(calc((var(--vh) - 124px) * 5 / 7), 31vw); }
 
   /* 掼蛋: the two cards run almost the full height, with the status in a slim column
      between them: Red | deal, level, wild | Blue */
@@ -1212,8 +1216,8 @@ tr[data-action]:active td { background: var(--fill); }
   .play-grid:not(.zhuan) .team.t1 { grid-column: 3; grid-row: 1; }
   .play-grid:not(.zhuan) .board > .status { grid-column: 2; grid-row: 1; flex-direction: column; gap: 10px; line-height: 1.3; }
   .play-grid:not(.zhuan) .board > .status.champ { font-size: 22px; }
-  .play-grid:not(.zhuan) .board > .status .tribute { flex-basis: auto; flex-direction: column; align-items: center; font-size: 14px; }
-  .board > .status .tribute b { color: var(--gold); }
+  .play-grid:not(.zhuan) .board > .status .tribute { flex-basis: auto; }
+  .board > .status .tribute { color: var(--gold); }
   .play-grid:not(.zhuan) .board > .actions-row { grid-column: 1 / -1; grid-row: 2; }
   .board > .status .tap-inline { display: inline; color: var(--on-felt-muted); font-weight: 600; }
   .board > .money-board { align-items: stretch; padding: 4px 0; }
@@ -1244,8 +1248,8 @@ tr[data-action]:active td { background: var(--fill); }
   .board > .teams .team-players { font-size: 21px; }
   .board > .teams .team-meta { bottom: 28px; }
   .board > .teams .badge { font-size: 17px; padding: 6px 14px; border-radius: 16px; }
-  .board > .teams .pcard-wrap { --w: min(calc((100dvh - 130px) * 5 / 7), 36vw); margin: 10px auto 0; }
-  .play-grid.done .board > .teams .pcard-wrap { --w: min(calc((100dvh - 230px) * 5 / 7), 36vw); }
+  .board > .teams .pcard-wrap { --w: min(calc((var(--vh) - 130px) * 5 / 7), 36vw); margin: 10px auto 0; }
+  .play-grid.done .board > .teams .pcard-wrap { --w: min(calc((var(--vh) - 230px) * 5 / 7), 36vw); }
   .play-grid:not(.zhuan) { grid-template-columns: minmax(0, 1fr) clamp(160px, 15vw, 220px) minmax(0, 1fr); column-gap: 24px; }
   .play-grid:not(.zhuan) .board > .status { gap: 16px; }
   .play-grid:not(.zhuan) .board > .status.champ { font-size: 32px; }

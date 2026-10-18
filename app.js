@@ -772,25 +772,13 @@ function renderPlay() {
 // Only shown sideways, where the full-screen table hides the header and its ••• button.
 const tableMenuBtn = () => `<button class="table-menu" data-action="game-menu" aria-label="${tr('tableMenu')}">•••</button>`;
 
-// Before the next hand: who gives tribute to whom, from the last hand. The last player out
-// pays the first player out (even when they're partners, after a 1-4 finish); after a
-// 1-2 finish both losers pay and the bigger card goes to the first player out. Names when
-// the order was recorded, otherwise "Blue's last out" and the like.
+// Before the next hand: which tribute the last hand calls for. 双贡 after a 1-2 finish (both
+// losers pay), 单贡 after 1-3, and 内贡 after 1-4, when the last player out is the first
+// player out's own partner.
 function tributeLine(g) {
   const d = g.deals[g.deals.length - 1];
   if (!d || d.type === 'adjust') return '';
-  const w = d.winner, l = 1 - w, step = BUMP[d.place];
-  const name = id => esc(pname(id));
-  const first = d.firstOut ? name(d.firstOut) : tr('firstOutOf', teamName(w));
-  let text;
-  if (step === 3) text = tr('tributeDouble', esc(teamNames(g.teams[l])), first);
-  else {
-    const last = d.order?.length === 4 ? name(d.order[3])
-      : step === 1 && d.firstOut ? name(g.teams[w].find(id => id !== d.firstOut))
-      : tr('lastOutOf', teamName(step === 1 ? w : l));
-    text = tr('tributeSingle', last, first);
-  }
-  return `<span class="tribute"><b>${tr('tributeLabel')}</b> ${text}<small>${tr('antiTribute')}</small></span>`;
+  return `<span class="tribute">${tr('tribute')[d.place]}</span>`;
 }
 
 // ----- Play: 转蛋 -----

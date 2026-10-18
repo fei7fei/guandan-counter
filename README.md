@@ -16,7 +16,7 @@ Shuffle up and have fun! 🃏
 - **Big playing-card scoreboard.** Each team's level shows as a card you can read from across the table. It flips over every time a team climbs.
 - **Super simple scoring.** Tap the winning team's card, then tap **+1**, **+2** or **+3**. That's it! Tapped the wrong card? Just close the pop-up and tap the other one.
 - **Record who went out (your choice).** Turn on **Record who went out** when you set up a game, and tap the players in the order they finished: the score fills itself in, and the stats learn who goes out first. Turn it off and the pop-up is just +1 +2 +3. You can switch it any time from the ••• menu.
-- **Tribute reminder.** After every 掼蛋 hand the table shows who gives tribute to whom (末游 → 头游, both losers after a 1-2 finish), with names when you recorded the order.
+- **Tribute reminder.** After every 掼蛋 hand the table tells you which tribute is coming: **单贡**, **双贡** or **内贡**.
 - **The screen stays on** while a game is open, so the phone on the table doesn't dim between hands. The app handles the rules on A for you.
 - **Knows the rules.** Shows whose level is being played and which heart is wild, and handles the "you must win on A" rule. By default a team gets 3 tries at A before dropping back to 2, and you can change house rules like "1-4 counts on A" or "unlimited tries on A".
 - **Mistakes are no big deal.** Undo the last hand, tap any earlier hand to edit or delete it, and every level after it fixes itself.
@@ -123,10 +123,11 @@ The losing team stays where it is.
 
 ### Tribute (进贡) before each new hand
 
-From the second hand onward, the losers pay tribute before play starts:
+From the second hand onward, tribute is paid before play starts. The app shows which kind is due:
 
-- **Single tribute (单贡):** the last-out player gives their **highest card** to the first-out player. The wild heart can't be given.
+- **Single tribute (单贡):** after a 1-3 finish, the last-out player gives their **highest card** to the first-out player. The wild heart can't be given.
 - **Double tribute (双贡):** after a 1-2 finish, both losers give their highest card. The higher card goes to first out, the other to second out.
+- **Partner tribute (内贡):** after a 1-4 finish, last out is first out's own partner, and pays them just like a single tribute.
 - **Returning a card (还贡):** each player who received a card gives one back. It's usually any card **10 or lower**.
 - **Refusing tribute (抗贡):** if the side that owes tribute holds **both red jokers**, no tribute is paid.
 - **Who leads:** whoever paid tribute (in a double tribute, the one who gave the higher card). If tribute was refused, first out from the last hand leads.

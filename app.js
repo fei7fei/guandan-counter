@@ -2315,10 +2315,53 @@ function switchView() {
   );
 }
 
+// Deal hand 1 of a new game from a setup draft (the Let's play button, or a rematch).
+function startGame(d, label = tr('dealt')) {
+  const teams = d.guest ? d.guestNames.map((t, ti) => t.map((name, s) => guestId(ti, s, name))) : d.teams.map(t => t.slice());
+  let g;
+  if (ui.mode === 'zhuan') {
+    const stake = round2(Number(d.stake));
+    if (!(stake > 0)) { sound.play('nope'); return toast(tr('needStake')); }
+    try { localStorage.setItem(ZHUAN_KEY, JSON.stringify({ stake, currency: d.currency })); } catch (e) { /* ignore */ }
+    g = {
+      id: uid(),
+      createdAt: Date.now(),
+      mode: 'zhuan',
+      seats: teams.flat(),
+      teams,
+      stake,
+      currency: d.currency,
+      deals: [],
+      trackOut: d.trackOut,
+      ...(d.guest && { guest: true }),
+    };
+  } else {
+    const unequal = d.start.levels[0] !== d.start.levels[1];
+    g = {
+      id: uid(),
+      createdAt: Date.now(),
+      teams,
+      rules: { ...d.rules },
+      start: { levels: d.start.levels.slice(), declarer: unequal ? d.start.declarer : null },
+      deals: [],
+      trackOut: d.trackOut,
+      abandoned: false,
+      ...(d.guest && { guest: true }),
+    };
+  }
+  ui.draft = null;
+  mutate(label, () => {
+    dropGuestGames();
+    data.games.push(g);
+    setActive(g.id);
+  });
+  switchView();
+}
+
 // Sound for each action; anything not listed gets a soft tap.
 const ACTION_SOUND = {
   record: 'open', 'game-menu': 'open', slot: 'open', 'edit-deal': 'open', 'adjust-open': 'open', 'rename-open': 'open', 'delete-player': 'open',
-  'deal-save': 'chip', 'adjust-save': 'chip', 'start-game': 'chip',
+  'deal-save': 'chip', 'adjust-save': 'chip', 'start-game': 'chip', rematch: 'chip',
   undo: 'undo', 'undo-deal': 'undo',
   'delete-deal': 'del', 'confirm-run': 'del', 'quit-game': 'open', 'clear-slot': 'del',
   'shuffle-teams': 'flip', 'swap-teams': 'flip', 'pick-player': 'pop',
@@ -2575,6 +2618,8 @@ const actions = {
       ui.draft = newDraft(g.teams.map(t => t.map(id => (findPlayer(id)?.deleted ? null : id))));
     }
     ui.draft.rules = { ...g.rules };
+    // Same four at the table: straight into hand 1. A seat whose player was deleted goes back to setup.
+    if (ui.draft.guest || ui.draft.teams.flat().every(Boolean)) return startGame(ui.draft, tr('rematchDealt'));
     ui.fanDealt = false;
     setActive(null);
     dropGuestGames();
@@ -2625,48 +2670,7 @@ const actions = {
     render();
   },
   'start-decl'({ team }) { ui.draft.start.declarer = +team; render(); },
-  'start-game'() {
-    const d = ui.draft;
-    const teams = d.guest ? d.guestNames.map((t, ti) => t.map((name, s) => guestId(ti, s, name))) : d.teams.map(t => t.slice());
-    let g;
-    if (ui.mode === 'zhuan') {
-      const stake = round2(Number(d.stake));
-      if (!(stake > 0)) { sound.play('nope'); return toast(tr('needStake')); }
-      try { localStorage.setItem(ZHUAN_KEY, JSON.stringify({ stake, currency: d.currency })); } catch (e) { /* ignore */ }
-      g = {
-        id: uid(),
-        createdAt: Date.now(),
-        mode: 'zhuan',
-        seats: teams.flat(),
-        teams,
-        stake,
-        currency: d.currency,
-        deals: [],
-        trackOut: d.trackOut,
-        ...(d.guest && { guest: true }),
-      };
-    } else {
-      const unequal = d.start.levels[0] !== d.start.levels[1];
-      g = {
-        id: uid(),
-        createdAt: Date.now(),
-        teams,
-        rules: { ...d.rules },
-        start: { levels: d.start.levels.slice(), declarer: unequal ? d.start.declarer : null },
-        deals: [],
-        trackOut: d.trackOut,
-        abandoned: false,
-        ...(d.guest && { guest: true }),
-      };
-    }
-    ui.draft = null;
-    mutate(tr('dealt'), () => {
-      dropGuestGames();
-      data.games.push(g);
-      setActive(g.id);
-    });
-    switchView();
-  },
+  'start-game'() { startGame(ui.draft); },
 
   // history
   'open-game'({ id }) {

@@ -960,7 +960,8 @@ function trackOutPref() {
 function setTrackOutPref(on) {
   try { localStorage.setItem(ORDER_KEY, on ? '1' : '0'); } catch (e) { /* ignore */ }
 }
-const tracksOut = g => g.trackOut !== false; // games from before the setting count as on
+// Quick games never ask: only games that count for stats record who went out.
+const tracksOut = g => !g.guest && g.trackOut !== false; // games from before the setting count as on
 
 // Quick game or tracked: remembered from the mode picker or the setup screen.
 const GUEST_KEY = 'guandan-counter/quick';
@@ -1007,7 +1008,7 @@ function renderNewGame() {
     </div>`;
   ui.fanDealt = true;
 
-  const trackRule = `
+  const trackRule = d.guest ? '' : `
         <div class="rule">
           <div><b>${tr('trackOutTitle')}</b><p class="muted">${tr('trackOutDesc')}</p></div>
           <div class="seg">
@@ -1675,7 +1676,7 @@ function sheetZhuanDeal() {
     </div>
     <div class="gain-btns">
       ${[1, 2, 3].map(n => {
-        const fixed = orderStep(s.order, s.teams, w);
+        const fixed = tracksOut(g) && orderStep(s.order, s.teams, w);
         return `<button class="gain-btn money-btn t${w} ${(fixed ? fixed === n : editing && s.mult === n) ? 'on' : ''}" data-action="zdeal-save" data-mult="${n}" ${fixed && fixed !== n ? 'disabled' : ''}>×${n}<small>${fmtMoney(amount(n), g.currency)}</small></button>`;
       }).join('')}
     </div>
@@ -1754,7 +1755,7 @@ function sheetDeal() {
     ${tracksOut(g) ? orderPicker(s.order, g.teams, w) : ''}
     <div class="gain-btns">
       ${[1, 2, 3].map(n => {
-        const fixed = orderStep(s.order, g.teams, w);
+        const fixed = tracksOut(g) && orderStep(s.order, g.teams, w);
         return `<button class="gain-btn t${w} ${(fixed ? fixed === n : editing && s.step === n) ? 'on' : ''}" data-action="deal-save" data-step="${n}" ${fixed && fixed !== n ? 'disabled' : ''}>+${n}</button>`;
       }).join('')}
     </div>
@@ -1762,7 +1763,7 @@ function sheetDeal() {
     <button class="btn subtle full" data-action="close-sheet">${tr('cancel')}</button>`;
 }
 
-const trackMenuItem = g => `<button data-action="track-out-game">${tr('trackOutTitle')}: ${tr(tracksOut(g) ? 'on' : 'off')}<small>${tr(tracksOut(g) ? 'trackOutOnSub' : 'trackOutOffSub')}</small></button>`;
+const trackMenuItem = g => g.guest ? '' : `<button data-action="track-out-game">${tr('trackOutTitle')}: ${tr(tracksOut(g) ? 'on' : 'off')}<small>${tr(tracksOut(g) ? 'trackOutOnSub' : 'trackOutOffSub')}</small></button>`;
 
 function sheetMenu() {
   const g = activeGame();

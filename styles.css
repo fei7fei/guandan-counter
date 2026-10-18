@@ -626,6 +626,7 @@ button.money-row:active { transform: scale(.97); }
 .chip-btn.t1 { background: var(--blue); }
 .chip-btn:active { transform: scale(.97); filter: brightness(.92); }
 .undo-deal { align-self: center; }
+.quit-game { align-self: center; color: var(--red-text); margin-top: -6px; }
 
 .log h2 { margin-bottom: 4px; }
 .deals { list-style: none; margin: 0; padding: 0; }
@@ -1140,7 +1141,7 @@ tr[data-action]:active td { background: var(--fill); }
     background: radial-gradient(ellipse 120% 90% at 50% 0%, var(--felt-hi) 0%, var(--felt) 55%, var(--felt-lo) 100%), var(--felt);
   }
   .board { display: contents; }
-  .board > :is(.guest-note, .undo-deal, .zhuan-tools), .play-grid > .log { display: none; }
+  .board > :is(.guest-note, .undo-deal, .quit-game, .zhuan-tools), .play-grid > .log { display: none; }
   .board > .record, .board > .actions-row { flex: none; }
   .board > .record .hint { display: none; }
   .board > .record .chip-btn { min-height: 54px; font-size: 18px; }

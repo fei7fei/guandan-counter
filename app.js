@@ -759,6 +759,7 @@ function renderPlay() {
         <div class="teams">${[0, 1].map(t => teamCard(g, st, t, '', !done)).join('')}</div>
         ${record}
         <button class="btn subtle undo-deal" data-action="undo-deal" ${g.deals.length ? '' : 'disabled'}>${tr('undoLast')}</button>
+        ${done ? '' : `<button class="btn subtle quit-game" data-action="quit-game">${tr('quitGame')}</button>`}
       </section>
       <section class="log panel">
         <h2>${tr('hands')}</h2>
@@ -818,6 +819,7 @@ function renderPlayZhuan(g) {
           <button class="btn" data-action="settle-open" ${g.deals.length ? '' : 'disabled'}>${tr('settleUp')}</button>
         </div>
         <button class="btn subtle undo-deal" data-action="undo-deal" ${g.deals.length ? '' : 'disabled'}>${tr('undoLast')}</button>
+        <button class="btn subtle quit-game" data-action="quit-game">${tr('quitGame')}</button>
       </section>
       <section class="log panel">
         <h2>${tr('hands')}</h2>
@@ -2318,7 +2320,7 @@ const ACTION_SOUND = {
   record: 'open', 'game-menu': 'open', slot: 'open', 'edit-deal': 'open', 'adjust-open': 'open', 'rename-open': 'open', 'delete-player': 'open',
   'deal-save': 'chip', 'adjust-save': 'chip', 'start-game': 'chip',
   undo: 'undo', 'undo-deal': 'undo',
-  'delete-deal': 'del', 'confirm-run': 'del', 'clear-slot': 'del',
+  'delete-deal': 'del', 'confirm-run': 'del', 'quit-game': 'open', 'clear-slot': 'del',
   'shuffle-teams': 'flip', 'swap-teams': 'flip', 'pick-player': 'pop',
   'zdeal-save': null, 'pairing-open': 'open', 'settle-open': 'open', 'pairing-pick': 'flip', 'finish-zhuan': 'chip',
   'jokers-toggle': 'pop', 'pick-mode': 'open', 'choose-mode': 'chip',
@@ -2509,6 +2511,23 @@ const actions = {
     });
   },
   'game-menu'() { openSheet({ type: 'menu' }); },
+  // Quit from the play screen: a quick game is dropped, a tracked one goes to history
+  // (level games with no winner, 转蛋 with its totals so far). Undo still brings it back.
+  'quit-game'() {
+    const g = activeGame();
+    if (!g) return;
+    openSheet({
+      type: 'confirm',
+      title: tr('quitTitle'),
+      body: tr(g.guest || !g.deals.length ? 'quitEmptySub' : isZhuan(g) ? 'finishSub' : 'endNoWinnerSub'),
+      label: tr('quitGame'),
+      run: () => {
+        // nothing played yet: there's nothing to keep, so it just goes away
+        if (!g.deals.length) mutate(tr('guestEnded'), () => { data.games = data.games.filter(x => x !== g); setActive(null); });
+        else actions[isZhuan(g) ? 'finish-zhuan' : 'abandon-game']();
+      },
+    });
+  },
   'adjust-open'() {
     const g = activeGame();
     const st = computeState(g);

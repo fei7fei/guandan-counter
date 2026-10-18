@@ -1677,7 +1677,7 @@ function sheetZhuanDeal() {
     <div class="gain-btns">
       ${[1, 2, 3].map(n => {
         const fixed = tracksOut(g) && orderStep(s.order, s.teams, w);
-        return `<button class="gain-btn money-btn t${w} ${(fixed ? fixed === n : editing && s.mult === n) ? 'on' : ''}" data-action="zdeal-save" data-mult="${n}" ${fixed && fixed !== n ? 'disabled' : ''}>×${n}<small>${fmtMoney(amount(n), g.currency)}</small></button>`;
+        return `<button class="gain-btn money-btn t${w} ${(fixed ? fixed === n : editing && s.mult === n) ? 'on' : ''}" data-action="zdeal-save" data-mult="${n}" ${orderPending(g, s) || (fixed && fixed !== n) ? 'disabled' : ''}>×${n}<small>${fmtMoney(amount(n), g.currency)}</small></button>`;
       }).join('')}
     </div>
     ${editing ? `<button class="btn danger full" data-action="delete-deal">${tr('deleteHand')}</button>` : ''}`;
@@ -1737,6 +1737,9 @@ function orderStep(order, teams, w) {
   return at > 0 ? { 1: 3, 2: 2, 3: 1 }[at] : null;
 }
 
+// A game that records who went out needs the full order before the hand can be saved.
+const orderPending = (g, s) => tracksOut(g) && s.order.length < 4;
+
 const wonTitle = (t, who) => `<h2 class="won-title t${t}"><span class="suit">${SUIT[t]}</span>${tr('teamWon', who)}</h2>`;
 
 function sheetDeal() {
@@ -1755,7 +1758,7 @@ function sheetDeal() {
     <div class="gain-btns">
       ${[1, 2, 3].map(n => {
         const fixed = tracksOut(g) && orderStep(s.order, g.teams, w);
-        return `<button class="gain-btn t${w} ${(fixed ? fixed === n : editing && s.step === n) ? 'on' : ''}" data-action="deal-save" data-step="${n}" ${fixed && fixed !== n ? 'disabled' : ''}>+${n}</button>`;
+        return `<button class="gain-btn t${w} ${(fixed ? fixed === n : editing && s.step === n) ? 'on' : ''}" data-action="deal-save" data-step="${n}" ${orderPending(g, s) || (fixed && fixed !== n) ? 'disabled' : ''}>+${n}</button>`;
       }).join('')}
     </div>
     ${editing ? `<button class="btn danger full" data-action="delete-deal">${tr('deleteHand')}</button>` : ''}`;

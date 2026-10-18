@@ -1647,7 +1647,7 @@ function renderSheet() {
   const body = { deal: sheetDeal, menu: sheetMenu, adjust: sheetAdjust, pick: sheetPick, confirm: sheetConfirm, rename: sheetRename, seatname: sheetSeatName, rules: sheetRules, firstpick: sheetFirstPick, pairing: sheetPairing, settle: sheetSettle }[s.type]();
   root.innerHTML = `
     <div class="backdrop ${ui.sheetIsNew ? 'enter' : ''}" data-action="close-sheet"></div>
-    <div class="sheet ${ui.sheetIsNew ? 'enter' : ''}" role="dialog" aria-modal="true">
+    <div class="sheet sheet-${s.type} ${ui.sheetIsNew ? 'enter' : ''}" role="dialog" aria-modal="true">
       <div class="grabber"></div>
       ${body}
     </div>`;
@@ -1680,8 +1680,7 @@ function sheetZhuanDeal() {
         return `<button class="gain-btn money-btn t${w} ${(fixed ? fixed === n : editing && s.mult === n) ? 'on' : ''}" data-action="zdeal-save" data-mult="${n}" ${fixed && fixed !== n ? 'disabled' : ''}>×${n}<small>${fmtMoney(amount(n), g.currency)}</small></button>`;
       }).join('')}
     </div>
-    ${editing ? `<button class="btn danger full" data-action="delete-deal">${tr('deleteHand')}</button>` : ''}
-    <button class="btn subtle full" data-action="close-sheet">${tr('cancel')}</button>`;
+    ${editing ? `<button class="btn danger full" data-action="delete-deal">${tr('deleteHand')}</button>` : ''}`;
 }
 
 function sheetPairing() {
@@ -1759,8 +1758,7 @@ function sheetDeal() {
         return `<button class="gain-btn t${w} ${(fixed ? fixed === n : editing && s.step === n) ? 'on' : ''}" data-action="deal-save" data-step="${n}" ${fixed && fixed !== n ? 'disabled' : ''}>+${n}</button>`;
       }).join('')}
     </div>
-    ${editing ? `<button class="btn danger full" data-action="delete-deal">${tr('deleteHand')}</button>` : ''}
-    <button class="btn subtle full" data-action="close-sheet">${tr('cancel')}</button>`;
+    ${editing ? `<button class="btn danger full" data-action="delete-deal">${tr('deleteHand')}</button>` : ''}`;
 }
 
 const trackMenuItem = g => g.guest ? '' : `<button data-action="track-out-game">${tr('trackOutTitle')}: ${tr(tracksOut(g) ? 'on' : 'off')}<small>${tr(tracksOut(g) ? 'trackOutOnSub' : 'trackOutOffSub')}</small></button>`;

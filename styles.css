@@ -849,6 +849,19 @@ tr[data-action]:active td { background: var(--fill); }
 .gain-btn:active { transform: scale(.95); filter: brightness(.92); }
 .gain-btn.on { box-shadow: inset 0 0 0 3px #fff, 0 0 0 3px var(--accent); }
 
+/* The hand sheet: big targets, no Cancel (tap outside or Esc closes it) */
+.sheet-deal { gap: 16px; padding-top: 12px; }
+.sheet-deal .won-title { font-size: 28px; }
+.sheet-deal .gain-btns { gap: 12px; }
+.sheet-deal .gain-btn { min-height: 120px; border-radius: 24px; font-size: 46px; }
+.sheet-deal .money-btn small { font-size: 18px; }
+.sheet-deal .order-chip { min-height: 56px; font-size: 18px; }
+@media (min-width: 700px) {
+  .sheet-deal { max-width: 680px; padding: 28px 28px 32px; gap: 20px; }
+  .sheet-deal .won-title { font-size: 32px; }
+  .sheet-deal .gain-btn { min-height: 150px; font-size: 56px; }
+}
+
 .menu { display: flex; flex-direction: column; background: var(--cell); border-radius: 16px; overflow: hidden; }
 .menu button { text-align: left; padding: 13px 16px; min-height: 50px; font-size: 17px; display: flex; flex-direction: column; justify-content: center; transition: background-color 140ms ease; }
 .menu button + button { box-shadow: inset 16px .5px 0 var(--cell), inset 0 .5px 0 var(--sep); }
@@ -1104,6 +1117,8 @@ tr[data-action]:active td { background: var(--fill); }
   /* sheets: a little tighter so a whole hand fits on screen */
   .sheet { max-height: calc(100dvh - 16px); gap: 10px; }
   .gain-btn { min-height: 64px; }
+  .sheet-deal { padding-top: 12px; gap: 10px; }
+  .sheet-deal .gain-btn { min-height: 84px; font-size: 38px; }
   .big-seg button { min-height: 40px; }
   .tiles { grid-template-columns: repeat(4, 1fr); }
 }

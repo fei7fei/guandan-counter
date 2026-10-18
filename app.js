@@ -1054,7 +1054,7 @@ function renderNewGame() {
       </div>
       <div class="chip-row">
         ${!d.guest && prev && prev.teams.flat().every(id => findPlayer(id) && !findPlayer(id).deleted) ? `<button class="chip" data-action="same-teams">${tr('sameTeams')}</button>` : ''}
-        ${d.guest || picked.filter(Boolean).length === 4 ? `<button class="chip" data-action="shuffle-teams">${tr('shuffle')}</button><button class="chip" data-action="swap-teams">${tr('swap')}</button>` : ''}
+        ${d.guest || picked.filter(Boolean).length === 4 ? `<button class="chip" data-action="shuffle-teams">${tr('shuffle')}</button>` : ''}
       </div>
 
       ${d.guest ? '' : `
@@ -2352,7 +2352,7 @@ const ACTION_SOUND = {
   'deal-save': 'chip', 'adjust-save': 'chip', 'start-game': 'chip', rematch: 'chip',
   undo: 'undo', 'undo-deal': 'undo',
   'delete-deal': 'del', 'confirm-run': 'del', 'quit-game': 'open', 'clear-slot': 'del',
-  'shuffle-teams': 'flip', 'swap-teams': 'flip', 'pick-player': 'pop',
+  'shuffle-teams': 'flip', 'pick-player': 'pop',
   'zdeal-save': null, 'pairing-open': 'open', 'settle-open': 'open', 'pairing-pick': 'flip', 'finish-zhuan': 'chip',
   'jokers-toggle': 'pop', 'pick-mode': 'open', 'choose-mode': 'chip',
   'live-bomb': null, 'live-jokers': null, 'rename-seat': 'open', 'rules-open': 'open', 'gg-toggle': null, 'mode-back': 'undo', 'first-add': 'open', 'first-set': 'chip', 'order-tap': 'pop', 'track-out': 'tap', 'track-out-game': 'flip', 'copy-restore': 'open',
@@ -2649,7 +2649,6 @@ const actions = {
       ));
     }
   },
-  'swap-teams'() { ui.draft[ui.draft.guest ? 'guestNames' : 'teams'].reverse(); render(); },
   'rule-14'({ v }) { ui.draft.rules.aPassWith14 = v === '1'; render(); },
   'rule-fails'({ n }) { ui.draft.rules.aMaxFails = +n; render(); },
   'toggle-advanced'() {
